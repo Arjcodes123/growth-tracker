@@ -60,3 +60,11 @@ create policy "own rows" on words for all using (auth.uid() = user_id) with chec
 create policy "own rows" on gym_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on study_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on journal_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Explicit grants so the app works regardless of the project's
+-- "automatically expose new tables" default. Only signed-in users
+-- (the `authenticated` role) get any access; RLS above then narrows
+-- that down to each user's own rows. The `anon` role gets nothing,
+-- since every screen in the app requires a signed-in session.
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on reading_entries, words, gym_logs, study_logs, journal_entries to authenticated;
