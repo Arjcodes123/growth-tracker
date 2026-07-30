@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Growth Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="A private log for reading, training, study and journaling, with a dashboard that shows your streaks over time.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23161a20'/%3E%3Cpath d='M8 21 13 14 17 18 24 9' stroke='%23d7a24a' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0c0f; --panel:#15171c; --panel2:#1b1e25; --border:#262a33;
+    --text:#eef0f3; --muted:#8b909c; --muted-dim:#5d6270;
+    --accent:#d7a24a; --accent-ink:#1a1305; --accent-soft:rgba(215,162,74,.14);
+    --positive:#6bbf8e; --terracotta:#c9714f; --danger:#d9707a;
+    --radius:14px; --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 24px -12px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(215,162,74,.06), transparent 60%),
+      var(--bg);
+    color:var(--text); -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:980px;margin:0 auto;padding:32px 20px 80px;}
+  h1{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;margin:0;}
+  .sub{color:var(--muted);font-size:.92rem;margin:6px 0 24px;}
+  .tabs{display:flex;gap:4px;margin-bottom:24px;background:var(--panel);border:1px solid var(--border);
+    border-radius:999px;padding:4px;flex-wrap:wrap;width:fit-content;}
+  .tab{padding:8px 16px;cursor:pointer;color:var(--muted);border-radius:999px;font-size:.85rem;font-weight:600;
+    transition:color .15s, background .15s;}
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--accent-ink);background:var(--accent);}
+  .panel{display:none;}
+  .panel.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px;margin-bottom:16px;box-shadow:var(--shadow);}
+  label{display:block;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--muted-dim);margin:14px 0 6px;}
+  input[type=text], input[type=number], input[type=date], input[type=email], input[type=password], textarea{
+    width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--border);
+    background:var(--panel2);color:var(--text);font-size:.92rem;font-family:inherit;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  input:focus, textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  textarea{min-height:76px;resize:vertical;line-height:1.5;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;}
+  .row > div{flex:1;min-width:160px;}
+  .words-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+  .word-row{display:flex;gap:8px;}
+  .word-row input{flex:1;}
+  .btn{background:var(--accent);color:var(--accent-ink);border:none;padding:10px 18px;border-radius:9px;
+    font-weight:700;cursor:pointer;font-size:.88rem;transition:filter .15s, transform .15s;}
+  .btn:hover{filter:brightness(1.08);transform:translateY(-1px);}
+  .btn:active{transform:none;filter:brightness(.96);}
+  .btn.secondary{background:transparent;color:var(--text);border:1px solid var(--border);font-weight:600;}
+  .btn.secondary:hover{background:var(--panel2);filter:none;}
+  .btn.small{padding:7px 12px;font-size:.8rem;}
+  .btn.danger{background:var(--danger);color:#1a0a0c;}
+  .btn.google{
+    background:#fff;color:#1f1f1f;display:flex;align-items:center;justify-content:center;gap:10px;
+    width:100%;padding:12px 16px;font-size:.92rem;
+  }
+  .btn.google:hover{filter:brightness(.97);}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;
+    text-align:center;box-shadow:var(--shadow);}
+  .stat .num{font-size:1.7rem;font-weight:800;color:var(--accent);letter-spacing:-.02em;}
+  .stat .lbl{font-size:.72rem;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:.05em;}
+  canvas{max-height:280px;}
+  .entry{border-bottom:1px solid var(--border);padding:14px 0;}
+  .entry:last-child{border-bottom:none;}
+  .entry-head{display:flex;justify-content:space-between;gap:10px;font-size:.8rem;color:var(--muted);}
+  .entry-title{color:var(--text);font-weight:700;}
+  .entry-note{margin-top:6px;font-size:.9rem;line-height:1.55;white-space:pre-wrap;color:#cdd0d6;}
+  .tag{display:inline-block;background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+    padding:3px 9px;font-size:.74rem;margin:4px 6px 0 0;color:var(--positive);}
+  .empty{color:var(--muted);font-size:.9rem;text-align:center;padding:28px 0;}
+  .toprow{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  .toprow strong{font-size:.95rem;}
+  .search{margin-bottom:12px;}
+  .footer-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;}
+  .flash{position:fixed;top:18px;left:50%;transform:translateX(-50%);display:none;z-index:50;
+    background:var(--panel2);border:1px solid var(--positive);color:var(--positive);
+    padding:10px 16px;border-radius:9px;font-size:.85rem;box-shadow:var(--shadow);}
+  .flash.err{border-color:var(--danger);color:var(--danger);}
+  .center-screen{max-width:400px;margin:14vh auto 0;text-align:center;}
+  .center-screen h1{margin-bottom:6px;}
+  .center-screen .sub{margin-bottom:28px;}
+  .hint{font-size:.78rem;color:var(--muted);margin-top:14px;line-height:1.5;}
+  a{color:var(--accent);}
+  #topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  #topbar .who{font-size:.82rem;color:var(--muted);}
+  #topbar h1{display:flex;align-items:center;gap:8px;}
+  .mark{width:26px;height:26px;border-radius:7px;background:var(--accent);display:inline-flex;
+    align-items:center;justify-content:center;flex:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="topbar" style="display:none;">
+    <h1><span class="mark"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 15 9 9 13 13 20 5" stroke="#1a1305" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Growth Tracker</h1>
+    <div class="who" id="whoami"></div>
+  </div>
+  <p class="sub" id="subline">Reading, gym, study and journal in one log, with a dashboard that shows your streaks over time.</p>
+  <div id="flash" class="flash"></div>
+
+  <!-- AUTH SCREEN -->
+  <div id="screen-auth" class="center-screen" style="display:none;">
+    <span class="mark" style="width:44px;height:44px;border-radius:12px;margin-bottom:18px;display:inline-flex;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 15 9 9 13 13 20 5" stroke="#1a1305" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <h1>Growth Tracker</h1>
+    <p class="sub">Sign in to start your log.</p>
+    <div class="card">
+      <button class="btn google" id="google-signin">
+        <svg width="18" height="18" viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.5 13.2l7.9 6.1C12.3 13 17.6 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.6c-.5 3-2.2 5.5-4.7 7.2l7.4 5.7C43.9 37.6 46.5 31.6 46.5 24.5z"/>
+          <path fill="#FBBC05" d="M10.4 19.3c-.5 1.5-.8 3.1-.8 4.7s.3 3.2.8 4.7l-7.9 6.1C.9 31.6 0 28.1 0 24s.9-7.6 2.5-10.8l7.9 6.1z"/>
+          <path fill="#34A853" d="M24 48c6.4 0 11.9-2.1 15.8-5.9l-7.4-5.7c-2.1 1.4-4.9 2.3-8.4 2.3-6.4 0-11.7-3.5-13.6-9.3l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/>
+        </svg>
+        Continue with Google
+      </button>
+      <p class="hint">Your entries are private to your account. Nothing is shared with anyone else who uses this app.</p>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app" style="display:none;">
+    <div class="tabs">
+      <div class="tab active" data-tab="dashboard">Dashboard</div>
+      <div class="tab" data-tab="reading">Reading</div>
+      <div class="tab" data-tab="gym">Gym</div>
+      <div class="tab" data-tab="study">Study</div>
+      <div class="tab" data-tab="journal">Journal</div>
+      <div class="tab" data-tab="vocab">Vocabulary</div>
+      <div class="tab" data-tab="settings">Settings</div>
+    </div>
+
+    <div class="panel active" id="panel-dashboard">
+      <div class="stats" id="stats"></div>
+      <div class="card"><div class="toprow"><strong>Minutes per day, last 21 days</strong></div><canvas id="chart-time"></canvas></div>
+      <div class="card"><div class="toprow"><strong>Cumulative words learned</strong></div><canvas id="chart-words"></canvas></div>
+    </div>
+
+    <div class="panel" id="panel-reading">
+      <div class="card">
+        <div class="row">
+          <div><label>Date</label><input type="date" id="r-date"></div>
+          <div><label>Book</label><input type="text" id="r-book"></div>
+          <div><label>Minutes</label><input type="number" id="r-minutes"></div>
+        </div>
+        <label>Learning / takeaway</label>
+        <textarea id="r-learning"></textarea>
+        <label>New words</label>
+        <div class="words-list" id="r-words"></div>
+        <button class="btn secondary small" id="r-addword" style="margin-top:8px;">+ Add word</button>
+        <div class="footer-actions"><button class="btn" id="r-save">Save entry</button></div>
+      </div>
+      <div class="card" id="r-list"></div>
+    </div>
+
+    <div class="panel" id="panel-gym">
+      <div class="card">
+        <div class="row">
+          <div><label>Date</label><input type="date" id="g-date"></div>
+          <div><label>Workout type</label><input type="text" id="g-type" placeholder="Push / Pull / Legs"></div>
+          <div><label>Minutes</label><input type="number" id="g-minutes"></div>
+        </div>
+        <label>Notes</label>
+        <textarea id="g-notes"></textarea>
+        <div class="footer-actions"><button class="btn" id="g-save">Save entry</button></div>
+      </div>
+      <div class="card" id="g-list"></div>
+    </div>
+
+    <div class="panel" id="panel-study">
+      <div class="card">
+        <div class="row">
+          <div><label>Date</label><input type="date" id="s-date"></div>
+          <div><label>Subject</label><input type="text" id="s-subject"></div>
+          <div><label>Minutes</label><input type="number" id="s-minutes"></div>
+        </div>
+        <label>Notes</label>
+        <textarea id="s-notes"></textarea>
+        <div class="footer-actions"><button class="btn" id="s-save">Save entry</button></div>
+      </div>
+      <div class="card" id="s-list"></div>
+    </div>
+
+    <div class="panel" id="panel-journal">
+      <div class="card">
+        <div class="row">
+          <div><label>Date</label><input type="date" id="j-date"></div>
+          <div><label>Title</label><input type="text" id="j-title"></div>
+        </div>
+        <label>Write</label>
+        <textarea id="j-content" style="min-height:160px;"></textarea>
+        <div class="footer-actions"><button class="btn" id="j-save">Save entry</button></div>
+      </div>
+      <div class="card" id="j-list"></div>
+    </div>
+
+    <div class="panel" id="panel-vocab">
+      <div class="card">
+        <input type="text" class="search" id="vocab-search" placeholder="Search words">
+        <div id="vocab-list"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-settings">
+      <div class="card">
+        <button class="btn secondary" id="signout-btn">Sign out</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- backend config ----
+// This app ships with one shared Supabase project. Every visitor signs in with
+// their own Google account; row-level security (see schema.sql) keeps each
+// person's rows visible only to them. The anon key below is meant to be public.
+const SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
+
+let sb = null;
+let user = null;
+
+function esc(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function flash(msg, isErr){
+  const f = document.getElementById('flash');
+  f.textContent = msg; f.className = 'flash' + (isErr ? ' err' : '');
+  f.style.display='block';
+  setTimeout(()=>f.style.display='none', 2500);
+}
+function show(id, disp){ document.getElementById(id).style.display = disp; }
+
+// ---- auth ----
+sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+});
+
+document.getElementById('google-signin').addEventListener('click', async ()=>{
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + window.location.pathname }
+  });
+  if(error) flash(error.message, true);
+});
+document.getElementById('signout-btn').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  location.reload();
+});
+
+async function checkSession(){
+  const {data} = await sb.auth.getSession();
+  if(data.session){ user = data.session.user; onLoggedIn(); }
+  else { show('screen-auth','block'); }
+}
+sb.auth.onAuthStateChange((event, session)=>{
+  if(session && !user){ user = session.user; onLoggedIn(); }
+  if(event === 'SIGNED_OUT'){ user = null; }
+});
+
+function onLoggedIn(){
+  history.replaceState(null, '', window.location.pathname);
+  show('screen-auth','none');
+  show('topbar','flex');
+  document.getElementById('whoami').textContent = user.email;
+  document.getElementById('subline').style.display='none';
+  document.getElementById('app').style.display='block';
+  ['r-date','g-date','s-date','j-date'].forEach(id=>{ document.getElementById(id).valueAsDate = new Date(); });
+  if(document.getElementById('r-words').children.length === 0) addWordRow();
+  renderAll();
+}
+
+// ---- tabs ----
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+    renderAll();
+  });
+});
+
+// ---- generic helpers ----
+async function fetchAll(table){
+  const {data,error} = await sb.from(table).select('*').order('date',{ascending:false});
+  if(error){ flash(error.message, true); return []; }
+  return data;
+}
+async function insertRow(table,row){
+  row.user_id = user.id;
+  const {data,error} = await sb.from(table).insert(row).select();
+  if(error){ flash(error.message, true); return null; }
+  return data[0];
+}
+async function deleteRow(table,id){
+  const {error} = await sb.from(table).delete().eq('id',id);
+  if(error){ flash(error.message, true); return; }
+  renderAll();
+}
+
+// ---- reading ----
+function addWordRow(word='',meaning=''){
+  const div = document.createElement('div');
+  div.className='word-row';
+  const wInput = document.createElement('input');
+  wInput.type='text'; wInput.className='w-word'; wInput.placeholder='word'; wInput.value=word;
+  const mInput = document.createElement('input');
+  mInput.type='text'; mInput.className='w-meaning'; mInput.placeholder='meaning'; mInput.value=meaning;
+  const rm = document.createElement('button');
+  rm.className='btn secondary small rm'; rm.textContent='Remove';
+  rm.addEventListener('click', ()=>div.remove());
+  div.append(wInput, mInput, rm);
+  document.getElementById('r-words').appendChild(div);
+}
+document.getElementById('r-addword').addEventListener('click', ()=>addWordRow());
+
+document.getElementById('r-save').addEventListener('click', async ()=>{
+  const date = document.getElementById('r-date').value;
+  const book = document.getElementById('r-book').value.trim();
+  const minutes = parseFloat(document.getElementById('r-minutes').value)||0;
+  const learning = document.getElementById('r-learning').value.trim();
+  const words = [...document.querySelectorAll('#r-words .word-row')].map(r=>({
+    word: r.querySelector('.w-word').value.trim(), meaning: r.querySelector('.w-meaning').value.trim()
+  })).filter(w=>w.word);
+  if(!date){ flash('Pick a date.', true); return; }
+  const entry = await insertRow('reading_entries', {date, book, minutes, learning});
+  if(!entry) return;
+  for(const w of words){ await insertRow('words', {date, word:w.word, meaning:w.meaning, reading_entry_id: entry.id}); }
+  flash('Saved.');
+  document.getElementById('r-book').value=''; document.getElementById('r-minutes').value='';
+  document.getElementById('r-learning').value=''; document.getElementById('r-words').innerHTML='';
+  addWordRow();
+  renderAll();
+});
+
+// ---- gym ----
+document.getElementById('g-save').addEventListener('click', async ()=>{
+  const date = document.getElementById('g-date').value;
+  const workout_type = document.getElementById('g-type').value.trim();
+  const duration_min = parseFloat(document.getElementById('g-minutes').value)||0;
+  const notes = document.getElementById('g-notes').value.trim();
+  if(!date){ flash('Pick a date.', true); return; }
+  const r = await insertRow('gym_logs', {date, workout_type, duration_min, notes});
+  if(!r) return;
+  flash('Saved.');
+  document.getElementById('g-type').value=''; document.getElementById('g-minutes').value=''; document.getElementById('g-notes').value='';
+  renderAll();
+});
+
+// ---- study ----
+document.getElementById('s-save').addEventListener('click', async ()=>{
+  const date = document.getElementById('s-date').value;
+  const subject = document.getElementById('s-subject').value.trim();
+  const minutes = parseFloat(document.getElementById('s-minutes').value)||0;
+  const notes = document.getElementById('s-notes').value.trim();
+  if(!date){ flash('Pick a date.', true); return; }
+  const r = await insertRow('study_logs', {date, subject, minutes, notes});
+  if(!r) return;
+  flash('Saved.');
+  document.getElementById('s-subject').value=''; document.getElementById('s-minutes').value=''; document.getElementById('s-notes').value='';
+  renderAll();
+});
+
+// ---- journal ----
+document.getElementById('j-save').addEventListener('click', async ()=>{
+  const date = document.getElementById('j-date').value;
+  const title = document.getElementById('j-title').value.trim();
+  const content = document.getElementById('j-content').value.trim();
+  if(!date || !content){ flash('Write something first.', true); return; }
+  const r = await insertRow('journal_entries', {date, title, content});
+  if(!r) return;
+  flash('Saved.');
+  document.getElementById('j-title').value=''; document.getElementById('j-content').value='';
+  renderAll();
+});
+
+// ---- render lists ----
+function listHtml(rows, table, renderItem){
+  if(rows.length===0) return '<div class="empty">No entries yet.</div>';
+  return rows.map(e => `
+    <div class="entry">
+      ${renderItem(e)}
+      <div style="margin-top:8px;"><button class="btn secondary small del" data-table="${table}" data-id="${e.id}">Delete</button></div>
+    </div>`).join('');
+}
+function bindDeletes(container){
+  container.querySelectorAll('.del').forEach(btn=>{
+    btn.addEventListener('click', ()=>deleteRow(btn.dataset.table, btn.dataset.id));
+  });
+}
+
+let cache = { reading:[], gym:[], study:[], journal:[], words:[] };
+
+async function renderAll(){
+  const activeTab = document.querySelector('.tab.active')?.dataset.tab;
+  if(activeTab==='reading' || activeTab==='dashboard' || activeTab==='vocab'){
+    cache.reading = await fetchAll('reading_entries');
+    cache.words = await fetchAll('words');
+  }
+  if(activeTab==='gym' || activeTab==='dashboard') cache.gym = await fetchAll('gym_logs');
+  if(activeTab==='study' || activeTab==='dashboard') cache.study = await fetchAll('study_logs');
+  if(activeTab==='journal') cache.journal = await fetchAll('journal_entries');
+
+  if(activeTab==='reading'){
+    const el = document.getElementById('r-list');
+    el.innerHTML = listHtml(cache.reading, 'reading_entries', e=>`
+      <div class="entry-head"><span class="entry-title">${esc(e.book)||'(no book)'}</span><span>${esc(e.date)} &middot; ${esc(e.minutes)||0} min</span></div>
+      ${e.learning?`<div class="entry-note">${esc(e.learning)}</div>`:''}
+      ${cache.words.filter(w=>w.reading_entry_id===e.id).map(w=>`<span class="tag">${esc(w.word)}</span>`).join('')}
+    `);
+    bindDeletes(el);
+  }
+  if(activeTab==='gym'){
+    const el = document.getElementById('g-list');
+    el.innerHTML = listHtml(cache.gym, 'gym_logs', e=>`
+      <div class="entry-head"><span class="entry-title">${esc(e.workout_type)||'Workout'}</span><span>${esc(e.date)} &middot; ${esc(e.duration_min)||0} min</span></div>
+      ${e.notes?`<div class="entry-note">${esc(e.notes)}</div>`:''}
+    `);
+    bindDeletes(el);
+  }
+  if(activeTab==='study'){
+    const el = document.getElementById('s-list');
+    el.innerHTML = listHtml(cache.study, 'study_logs', e=>`
+      <div class="entry-head"><span class="entry-title">${esc(e.subject)||'Study'}</span><span>${esc(e.date)} &middot; ${esc(e.minutes)||0} min</span></div>
+      ${e.notes?`<div class="entry-note">${esc(e.notes)}</div>`:''}
+    `);
+    bindDeletes(el);
+  }
+  if(activeTab==='journal'){
+    const el = document.getElementById('j-list');
+    el.innerHTML = listHtml(cache.journal, 'journal_entries', e=>`
+      <div class="entry-head"><span class="entry-title">${esc(e.title)||'(untitled)'}</span><span>${esc(e.date)}</span></div>
+      <div class="entry-note">${esc(e.content)}</div>
+    `);
+    bindDeletes(el);
+  }
+  if(activeTab==='vocab'){
+    renderVocab(document.getElementById('vocab-search').value);
+  }
+  if(activeTab==='dashboard'){
+    renderDashboard();
+  }
+}
+document.getElementById('vocab-search').addEventListener('input', e=>renderVocab(e.target.value));
+function renderVocab(filter=''){
+  const words = cache.words.filter(w =>
+    (w.word||'').toLowerCase().includes(filter.toLowerCase()) || (w.meaning||'').toLowerCase().includes(filter.toLowerCase())
+  );
+  const el = document.getElementById('vocab-list');
+  if(words.length===0){ el.innerHTML = '<div class="empty">No words yet.</div>'; return; }
+  el.innerHTML = words.map(w => `
+    <div class="entry"><div class="entry-head"><span class="entry-title">${esc(w.word)}</span><span>${esc(w.date)}</span></div>
+    <div class="entry-note">${esc(w.meaning)}</div></div>`).join('');
+}
+
+// ---- dashboard ----
+let charts = {};
+function dateStr(d){ return d.toISOString().slice(0,10); }
+function lastNDates(n){ const arr=[]; const t=new Date(); for(let i=n-1;i>=0;i--){ const d=new Date(t); d.setDate(d.getDate()-i); arr.push(dateStr(d)); } return arr; }
+
+function renderDashboard(){
+  const readMin = cache.reading.reduce((s,e)=>s+(Number(e.minutes)||0),0);
+  const gymMin = cache.gym.reduce((s,e)=>s+(Number(e.duration_min)||0),0);
+  const studyMin = cache.study.reduce((s,e)=>s+(Number(e.minutes)||0),0);
+  const wordsCount = cache.words.length;
+  const days = new Set([...cache.reading,...cache.gym,...cache.study].map(e=>e.date));
+  let streak=0; let d=new Date();
+  while(days.has(dateStr(d))){ streak++; d.setDate(d.getDate()-1); }
+
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="num">${readMin}</div><div class="lbl">Reading min</div></div>
+    <div class="stat"><div class="num">${gymMin}</div><div class="lbl">Gym min</div></div>
+    <div class="stat"><div class="num">${studyMin}</div><div class="lbl">Study min</div></div>
+    <div class="stat"><div class="num">${wordsCount}</div><div class="lbl">Words learned</div></div>
+    <div class="stat"><div class="num">${streak}</div><div class="lbl">Day streak</div></div>
+  `;
+
+  const last21 = lastNDates(21);
+  const byDay = (rows,field) => last21.map(d => rows.filter(e=>e.date===d).reduce((s,e)=>s+(Number(e[field])||0),0));
+  if(charts.time) charts.time.destroy();
+  charts.time = new Chart(document.getElementById('chart-time'), {
+    type:'bar',
+    data:{ labels: last21.map(d=>d.slice(5)), datasets:[
+      { label:'Reading', data: byDay(cache.reading,'minutes'), backgroundColor:'#d7a24a' },
+      { label:'Gym', data: byDay(cache.gym,'duration_min'), backgroundColor:'#c9714f' },
+      { label:'Study', data: byDay(cache.study,'minutes'), backgroundColor:'#6bbf8e' }
+    ]},
+    options:{ scales:{ x:{stacked:true, ticks:{color:'#8b909c'}, grid:{display:false}}, y:{stacked:true, ticks:{color:'#8b909c'}, grid:{color:'#262a33'}} },
+      plugins:{ legend:{labels:{color:'#eef0f3'}} } }
+  });
+
+  const sorted = [...cache.words].sort((a,b)=>a.date.localeCompare(b.date));
+  const dates = [...new Set(sorted.map(w=>w.date))];
+  let running=0;
+  const cum = dates.map(d=>{ running += sorted.filter(w=>w.date===d).length; return running; });
+  if(charts.words) charts.words.destroy();
+  charts.words = new Chart(document.getElementById('chart-words'), {
+    type:'line',
+    data:{ labels: dates, datasets:[{ label:'Cumulative words', data: cum, borderColor:'#d7a24a', backgroundColor:'rgba(215,162,74,.15)', fill:true, tension:.25 }] },
+    options:{ scales:{ y:{beginAtZero:true, ticks:{color:'#8b909c'}, grid:{color:'#262a33'}}, x:{ticks:{color:'#8b909c'}, grid:{display:false}} }, plugins:{legend:{display:false}} }
+  });
+}
+
+checkSession();
+</script>
+</body>
+</html>
