@@ -7,6 +7,7 @@ create table reading_entries (
   book text,
   minutes numeric default 0,
   learning text,
+  custom_fields jsonb not null default '{}',
   created_at timestamptz default now()
 );
 
@@ -27,6 +28,7 @@ create table gym_logs (
   workout_type text,
   duration_min numeric default 0,
   notes text,
+  custom_fields jsonb not null default '{}',
   created_at timestamptz default now()
 );
 
@@ -37,6 +39,7 @@ create table study_logs (
   subject text,
   minutes numeric default 0,
   notes text,
+  custom_fields jsonb not null default '{}',
   created_at timestamptz default now()
 );
 
@@ -46,6 +49,40 @@ create table journal_entries (
   date date not null,
   title text,
   content text,
+  custom_fields jsonb not null default '{}',
+  created_at timestamptz default now()
+);
+
+create table gratitude_entries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null default auth.uid(),
+  date date not null,
+  content text,
+  custom_fields jsonb not null default '{}',
+  created_at timestamptz default now()
+);
+
+create table diet_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null default auth.uid(),
+  date date not null,
+  meal text,
+  description text,
+  calories numeric default 0,
+  notes text,
+  custom_fields jsonb not null default '{}',
+  created_at timestamptz default now()
+);
+
+create table finance_entries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null default auth.uid(),
+  date date not null,
+  type text not null default 'expense',
+  category text,
+  amount numeric default 0,
+  notes text,
+  custom_fields jsonb not null default '{}',
   created_at timestamptz default now()
 );
 
@@ -54,12 +91,18 @@ alter table words enable row level security;
 alter table gym_logs enable row level security;
 alter table study_logs enable row level security;
 alter table journal_entries enable row level security;
+alter table gratitude_entries enable row level security;
+alter table diet_logs enable row level security;
+alter table finance_entries enable row level security;
 
 create policy "own rows" on reading_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on words for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on gym_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on study_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on journal_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own rows" on gratitude_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own rows" on diet_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own rows" on finance_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Explicit grants so the app works regardless of the project's
 -- "automatically expose new tables" default. Only signed-in users
@@ -67,4 +110,7 @@ create policy "own rows" on journal_entries for all using (auth.uid() = user_id)
 -- that down to each user's own rows. The `anon` role gets nothing,
 -- since every screen in the app requires a signed-in session.
 grant usage on schema public to authenticated;
-grant select, insert, update, delete on reading_entries, words, gym_logs, study_logs, journal_entries to authenticated;
+grant select, insert, update, delete on
+  reading_entries, words, gym_logs, study_logs, journal_entries,
+  gratitude_entries, diet_logs, finance_entries
+to authenticated;
