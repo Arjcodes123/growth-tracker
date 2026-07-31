@@ -29,7 +29,7 @@ See `schema.sql` for the table and policy definitions.
 
 ## Running your own copy
 
-See `SETUP.md` for the full checklist: create a Supabase project, run `schema.sql`, configure Google sign-in, drop your Project URL and anon key into `growth-tracker.html`, and deploy.
+See `SETUP.md` for the full checklist: create a Supabase project, run `schema.sql`, configure Google sign-in, drop your Project URL and anon key into `index.html`, and deploy.
 
 ## License
 

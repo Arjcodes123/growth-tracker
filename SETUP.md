@@ -3,7 +3,7 @@
 This is the one-time setup for the person hosting the app (you). Visitors never see any of this; they just click "Continue with Google."
 
 Files in this folder:
-- `growth-tracker.html`: the app (open directly in a browser, or deploy it)
+- `index.html`: the app (open directly in a browser, or deploy it)
 - `schema.sql`: database tables and row-level security, run once in Supabase
 - `SETUP.md`: this checklist
 - `README.md`: project overview
@@ -19,7 +19,7 @@ Files in this folder:
 
 - [ ] Open your project, **SQL Editor**, New query
 - [ ] Paste the entire contents of `schema.sql`, **Run**
-- [ ] Confirm no errors (5 tables should now exist: `reading_entries`, `words`, `gym_logs`, `study_logs`, `journal_entries`, all with row-level security enabled)
+- [ ] Confirm no errors (8 tables should now exist: `reading_entries`, `words`, `gym_logs`, `study_logs`, `diet_logs`, `journal_entries`, `gratitude_entries`, `finance_entries`, all with row-level security enabled)
 
 ## 3. Set up "Sign in with Google"
 
@@ -30,7 +30,7 @@ Files in this folder:
 - [ ] Copy the generated **Client ID** and **Client Secret** from Google Cloud back into Supabase's Google provider settings, then toggle it **on**
 - [ ] In Supabase **Authentication → URL Configuration**, set the **Site URL** to your real deployed URL once you have one (step 6), and add `http://localhost:*` and any preview URLs under **Redirect URLs** while you're testing locally
 
-Google sign-in needs a real `http://` or `https://` URL to redirect to, so opening `growth-tracker.html` straight from disk (`file://...`) won't work for the OAuth step. Serve it locally (e.g. `npx serve .`) or just test on the deployed URL from step 6.
+Google sign-in needs a real `http://` or `https://` URL to redirect to, so opening `index.html` straight from disk (`file://...`) won't work for the OAuth step. Serve it locally (e.g. `npx serve .`) or just test on the deployed URL from step 6.
 
 - [ ] Optional: turn off the **Email** provider in Supabase (**Authentication → Providers → Email**) since this app only uses Google sign-in
 
@@ -39,7 +39,7 @@ Google sign-in needs a real `http://` or `https://` URL to redirect to, so openi
 - [ ] In Supabase: **Settings → API**
 - [ ] Copy the **Project URL** and the **anon public** key
   (Safe to embed in the page. Supabase's row-level security, set up by `schema.sql`, is what actually keeps everyone's data private, not secrecy of this key.)
-- [ ] Open `growth-tracker.html`, find the `SUPABASE_URL` / `SUPABASE_ANON_KEY` constants near the top of the `<script>` block, and paste your values in
+- [ ] Open `app.js`, find the `SUPABASE_URL` / `SUPABASE_ANON_KEY` constants near the top, and paste your values in
 
 ## 5. Try it locally
 
@@ -50,7 +50,7 @@ Google sign-in needs a real `http://` or `https://` URL to redirect to, so openi
 ## 6. Put it on GitHub
 
 - [ ] Public repo is fine here: the anon key isn't a secret, and there's nothing else sensitive in the code
-- [ ] Push `growth-tracker.html`, `schema.sql`, `SETUP.md`, `README.md`
+- [ ] Push `index.html`, `style.css`, `app.js`, `schema.sql`, `SETUP.md`, `README.md`
 
 ## 7. Deploy for a real URL
 
