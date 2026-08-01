@@ -83,8 +83,16 @@ document.querySelectorAll('.tab').forEach(t=>{
 });
 
 // ---- generic helpers ----
+// Table name -> cache key, used to invalidate the right slice of the cache
+// after a write instead of refetching everything.
+const TABLE_KEY = {
+  reading_entries:'reading', words:'words', gym_logs:'gym', study_logs:'study',
+  diet_logs:'diet', journal_entries:'journal', gratitude_entries:'gratitude', finance_entries:'finance'
+};
+const ROW_LIMIT = 500; // caps payload size regardless of how much history a user builds up
+
 async function fetchAll(table){
-  const {data,error} = await sb.from(table).select('*').order('date',{ascending:false});
+  const {data,error} = await sb.from(table).select('*').order('date',{ascending:false}).limit(ROW_LIMIT);
   if(error){ flash(error.message, true); return []; }
   return data;
 }
@@ -92,11 +100,13 @@ async function insertRow(table,row){
   row.user_id = user.id;
   const {data,error} = await sb.from(table).insert(row).select();
   if(error){ flash(error.message, true); return null; }
+  loaded.delete(TABLE_KEY[table]);
   return data[0];
 }
 async function deleteRow(table,id){
   const {error} = await sb.from(table).delete().eq('id',id);
   if(error){ flash(error.message, true); return; }
+  loaded.delete(TABLE_KEY[table]);
   renderAll();
 }
 function listHtml(rows, table, renderItem){
@@ -296,21 +306,30 @@ function renderVocab(filter=''){
 
 // ---- render orchestration ----
 let cache = { reading:[], gym:[], study:[], diet:[], journal:[], gratitude:[], finance:[], words:[] };
+// Tracks which cache keys already reflect the server, so switching tabs back
+// and forth doesn't refetch data that hasn't changed. insertRow/deleteRow
+// clear the relevant key so the next render pulls fresh data for it.
+let loaded = new Set();
+async function ensureLoaded(key, table){
+  if(loaded.has(key)) return;
+  cache[key] = await fetchAll(table);
+  loaded.add(key);
+}
 
 async function renderAll(){
   const activeTab = document.querySelector('.tab.active')?.dataset.tab;
 
   if(activeTab==='reading' || activeTab==='dashboard' || activeTab==='vocab'){
-    cache.reading = await fetchAll('reading_entries');
-    cache.words = await fetchAll('words');
+    await ensureLoaded('reading', 'reading_entries');
+    await ensureLoaded('words', 'words');
   }
   for(const cfg of SIMPLE_TRACKERS){
-    if(activeTab===cfg.key || activeTab==='dashboard') cache[cfg.key] = await fetchAll(cfg.table);
+    if(activeTab===cfg.key || activeTab==='dashboard') await ensureLoaded(cfg.key, cfg.table);
   }
   for(const cfg of CONTENT_TRACKERS){
-    if(activeTab===cfg.key || (cfg.dashboard && activeTab==='dashboard')) cache[cfg.key] = await fetchAll(cfg.table);
+    if(activeTab===cfg.key || (cfg.dashboard && activeTab==='dashboard')) await ensureLoaded(cfg.key, cfg.table);
   }
-  if(activeTab==='finance' || activeTab==='dashboard') cache.finance = await fetchAll('finance_entries');
+  if(activeTab==='finance' || activeTab==='dashboard') await ensureLoaded('finance', 'finance_entries');
 
   if(activeTab==='reading') renderReading();
   for(const cfg of SIMPLE_TRACKERS){ if(activeTab===cfg.key) renderSimpleTracker(cfg); }
