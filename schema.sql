@@ -28,6 +28,7 @@ create table gym_logs (
   workout_type text,
   duration_min numeric default 0,
   notes text,
+  intensity text not null default 'medium' check (intensity in ('deep','medium','shallow')),
   custom_fields jsonb not null default '{}',
   created_at timestamptz default now()
 );
@@ -39,6 +40,19 @@ create table study_logs (
   subject text,
   minutes numeric default 0,
   notes text,
+  intensity text not null default 'medium' check (intensity in ('deep','medium','shallow')),
+  custom_fields jsonb not null default '{}',
+  created_at timestamptz default now()
+);
+
+create table work_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null default auth.uid(),
+  date date not null,
+  project text,
+  minutes numeric default 0,
+  notes text,
+  intensity text not null default 'medium' check (intensity in ('deep','medium','shallow')),
   custom_fields jsonb not null default '{}',
   created_at timestamptz default now()
 );
@@ -58,18 +72,6 @@ create table gratitude_entries (
   user_id uuid references auth.users not null default auth.uid(),
   date date not null,
   content text,
-  custom_fields jsonb not null default '{}',
-  created_at timestamptz default now()
-);
-
-create table diet_logs (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null default auth.uid(),
-  date date not null,
-  meal text,
-  description text,
-  calories numeric default 0,
-  notes text,
   custom_fields jsonb not null default '{}',
   created_at timestamptz default now()
 );
@@ -108,9 +110,9 @@ alter table reading_entries enable row level security;
 alter table words enable row level security;
 alter table gym_logs enable row level security;
 alter table study_logs enable row level security;
+alter table work_logs enable row level security;
 alter table journal_entries enable row level security;
 alter table gratitude_entries enable row level security;
-alter table diet_logs enable row level security;
 alter table finance_entries enable row level security;
 alter table todos enable row level security;
 alter table todo_checks enable row level security;
@@ -119,9 +121,9 @@ create policy "own rows" on reading_entries for all using (auth.uid() = user_id)
 create policy "own rows" on words for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on gym_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on study_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own rows" on work_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on journal_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on gratitude_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "own rows" on diet_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on finance_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on todos for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on todo_checks for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -133,6 +135,6 @@ create policy "own rows" on todo_checks for all using (auth.uid() = user_id) wit
 -- since every screen in the app requires a signed-in session.
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on
-  reading_entries, words, gym_logs, study_logs, journal_entries,
-  gratitude_entries, diet_logs, finance_entries, todos, todo_checks
+  reading_entries, words, gym_logs, study_logs, work_logs, journal_entries,
+  gratitude_entries, finance_entries, todos, todo_checks
 to authenticated;

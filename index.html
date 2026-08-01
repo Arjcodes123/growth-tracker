@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>Growth Tracker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="A private log for reading, training, study, diet, finance and journaling, with a dashboard that shows your streaks over time.">
+<meta name="description" content="A private log for reading, training, study, work, finance and journaling, with a dashboard that shows your streaks over time.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23a8672a'/%3E%3Cpath d='M8 21 13 14 17 18 24 9' stroke='%23fbf6e9' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -25,7 +25,7 @@
     <h1><span class="mark"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 15 9 9 13 13 20 5" stroke="#fbf6e9" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Growth Tracker</h1>
     <div class="who" id="whoami"></div>
   </div>
-  <p class="sub" id="subline">Reading, gym, study, diet, finance and journaling in one log, with a dashboard that shows your streaks over time.</p>
+  <p class="sub" id="subline">Reading, gym, study, work, finance and journaling in one log, with a dashboard that shows your streaks over time.</p>
   <div id="flash" class="flash"></div>
 
   <!-- AUTH SCREEN -->
@@ -56,7 +56,7 @@
       <div class="tab" data-tab="reading">Reading</div>
       <div class="tab" data-tab="gym">Gym</div>
       <div class="tab" data-tab="study">Study</div>
-      <div class="tab" data-tab="diet">Diet</div>
+      <div class="tab" data-tab="work">Work</div>
       <div class="tab" data-tab="journal">Journal</div>
       <div class="tab" data-tab="gratitude">Gratitude</div>
       <div class="tab" data-tab="finance">Finance</div>
@@ -99,6 +99,12 @@
           <div><label>Workout type</label><input type="text" id="g-field" placeholder="Push / Pull / Legs"></div>
           <div><label>Minutes</label><input type="number" id="g-num"></div>
         </div>
+        <label>Intensity</label>
+        <div class="pill-group" id="g-intensity">
+          <button type="button" class="pill" data-value="deep">Deep</button>
+          <button type="button" class="pill active" data-value="medium">Medium</button>
+          <button type="button" class="pill" data-value="shallow">Shallow</button>
+        </div>
         <label>Notes</label>
         <textarea id="g-notes"></textarea>
         <label>Custom fields</label>
@@ -116,6 +122,12 @@
           <div><label>Subject</label><input type="text" id="s-field"></div>
           <div><label>Minutes</label><input type="number" id="s-num"></div>
         </div>
+        <label>Intensity</label>
+        <div class="pill-group" id="s-intensity">
+          <button type="button" class="pill" data-value="deep">Deep</button>
+          <button type="button" class="pill active" data-value="medium">Medium</button>
+          <button type="button" class="pill" data-value="shallow">Shallow</button>
+        </div>
         <label>Notes</label>
         <textarea id="s-notes"></textarea>
         <label>Custom fields</label>
@@ -126,21 +138,27 @@
       <div class="card" id="s-list"></div>
     </div>
 
-    <div class="panel" id="panel-diet">
+    <div class="panel" id="panel-work">
       <div class="card">
         <div class="row">
-          <div><label>Date</label><input type="date" id="d-date"></div>
-          <div><label>Meal</label><input type="text" id="d-field" placeholder="Breakfast / Lunch / Dinner / Snack"></div>
-          <div><label>Calories</label><input type="number" id="d-num"></div>
+          <div><label>Date</label><input type="date" id="w-date"></div>
+          <div><label>Project</label><input type="text" id="w-field" placeholder="What did you work on"></div>
+          <div><label>Minutes</label><input type="number" id="w-num"></div>
+        </div>
+        <label>Intensity</label>
+        <div class="pill-group" id="w-intensity">
+          <button type="button" class="pill" data-value="deep">Deep</button>
+          <button type="button" class="pill active" data-value="medium">Medium</button>
+          <button type="button" class="pill" data-value="shallow">Shallow</button>
         </div>
         <label>Notes</label>
-        <textarea id="d-notes"></textarea>
+        <textarea id="w-notes"></textarea>
         <label>Custom fields</label>
-        <div class="words-list" id="d-fields"></div>
-        <button class="btn secondary small" id="d-addfield" style="margin-top:8px;">+ Add custom field</button>
-        <div class="footer-actions"><button class="btn" id="d-save">Save entry</button></div>
+        <div class="words-list" id="w-fields"></div>
+        <button class="btn secondary small" id="w-addfield" style="margin-top:8px;">+ Add custom field</button>
+        <div class="footer-actions"><button class="btn" id="w-save">Save entry</button></div>
       </div>
-      <div class="card" id="d-list"></div>
+      <div class="card" id="w-list"></div>
     </div>
 
     <div class="panel" id="panel-journal">

@@ -8,12 +8,14 @@ const SUPABASE_ANON_KEY = 'sb_publishable_Xk_aSrS3MnKtIoEUUc0uJw_5JUl1IiI';
 let sb = null;
 let user = null;
 
-// Trackers that share the "date + one label field + one numeric field + notes" shape.
+// Trackers that share the "date + one label field + one numeric field + notes
+// + deep/medium/shallow intensity" shape.
 const SIMPLE_TRACKERS = [
   { key:'gym', table:'gym_logs', prefix:'g', fieldCol:'workout_type', numCol:'duration_min', numLabel:'min', titleFallback:'Workout' },
   { key:'study', table:'study_logs', prefix:'s', fieldCol:'subject', numCol:'minutes', numLabel:'min', titleFallback:'Study' },
-  { key:'diet', table:'diet_logs', prefix:'d', fieldCol:'meal', numCol:'calories', numLabel:'cal', titleFallback:'Meal' },
+  { key:'work', table:'work_logs', prefix:'w', fieldCol:'project', numCol:'minutes', numLabel:'min', titleFallback:'Work' },
 ];
+const INTENSITIES = ['deep','medium','shallow'];
 
 // Trackers that share the "date + optional title + freeform content" shape.
 const CONTENT_TRACKERS = [
@@ -66,7 +68,7 @@ function onLoggedIn(){
   document.getElementById('whoami').textContent = user.email;
   document.getElementById('subline').style.display='none';
   document.getElementById('app').style.display='block';
-  ['r-date','g-date','s-date','d-date','j-date','gr-date','f-date'].forEach(id=>{ document.getElementById(id).value = todayLocal(); });
+  ['r-date','g-date','s-date','w-date','j-date','gr-date','f-date'].forEach(id=>{ document.getElementById(id).value = todayLocal(); });
   if(document.getElementById('r-words').children.length === 0) addWordRow();
   renderAll();
 }
@@ -86,8 +88,8 @@ document.querySelectorAll('.tab').forEach(t=>{
 // Table name -> cache key, used to invalidate the right slice of the cache
 // after a write instead of refetching everything.
 const TABLE_KEY = {
-  reading_entries:'reading', words:'words', gym_logs:'gym', study_logs:'study',
-  diet_logs:'diet', journal_entries:'journal', gratitude_entries:'gratitude', finance_entries:'finance',
+  reading_entries:'reading', words:'words', gym_logs:'gym', study_logs:'study', work_logs:'work',
+  journal_entries:'journal', gratitude_entries:'gratitude', finance_entries:'finance',
   todos:'todos'
 };
 const ROW_LIMIT = 500; // caps payload size regardless of how much history a user builds up
@@ -204,14 +206,25 @@ function renderReading(){
 // ---- simple trackers: gym, study, diet ----
 function wireSimpleTracker(cfg){
   document.getElementById(cfg.prefix+'-addfield').addEventListener('click', ()=>addCustomFieldRow(document.getElementById(cfg.prefix+'-fields')));
+  const intensityGroup = document.getElementById(cfg.prefix+'-intensity');
+  const resetIntensity = ()=>{
+    intensityGroup.querySelectorAll('.pill').forEach(b=>b.classList.toggle('active', b.dataset.value==='medium'));
+  };
+  intensityGroup.querySelectorAll('.pill').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      intensityGroup.querySelectorAll('.pill').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
   document.getElementById(cfg.prefix+'-save').addEventListener('click', async ()=>{
     const date = document.getElementById(cfg.prefix+'-date').value;
     const fieldVal = document.getElementById(cfg.prefix+'-field').value.trim();
     const numVal = parseFloat(document.getElementById(cfg.prefix+'-num').value)||0;
     const notes = document.getElementById(cfg.prefix+'-notes').value.trim();
+    const intensity = intensityGroup.querySelector('.pill.active')?.dataset.value || 'medium';
     const custom_fields = collectCustomFields(document.getElementById(cfg.prefix+'-fields'));
     if(!date){ flash('Pick a date.', true); return; }
-    const row = { date, notes, custom_fields };
+    const row = { date, notes, custom_fields, intensity };
     row[cfg.fieldCol] = fieldVal;
     row[cfg.numCol] = numVal;
     const r = await insertRow(cfg.table, row);
@@ -221,6 +234,7 @@ function wireSimpleTracker(cfg){
     document.getElementById(cfg.prefix+'-num').value='';
     document.getElementById(cfg.prefix+'-notes').value='';
     document.getElementById(cfg.prefix+'-fields').innerHTML='';
+    resetIntensity();
     renderAll();
   });
 }
@@ -228,6 +242,7 @@ function renderSimpleTracker(cfg){
   const el = document.getElementById(cfg.prefix+'-list');
   el.innerHTML = listHtml(cache[cfg.key], cfg.table, e=>`
     <div class="entry-head"><span class="entry-title">${esc(e[cfg.fieldCol])||cfg.titleFallback}</span><span>${esc(e.date)} &middot; ${esc(e[cfg.numCol])||0} ${cfg.numLabel}</span></div>
+    <span class="badge badge-${esc(e.intensity||'medium')}">${esc(e.intensity||'medium')}</span>
     ${e.notes?`<div class="entry-note">${esc(e.notes)}</div>`:''}
     ${renderCustomFields(e.custom_fields)}
   `);
@@ -417,7 +432,7 @@ function renderTodoBoard(){
 }
 
 // ---- render orchestration ----
-let cache = { reading:[], gym:[], study:[], diet:[], journal:[], gratitude:[], finance:[], words:[], todos:[], todoChecks:[] };
+let cache = { reading:[], gym:[], study:[], work:[], journal:[], gratitude:[], finance:[], words:[], todos:[], todoChecks:[] };
 // Tracks which cache keys already reflect the server, so switching tabs back
 // and forth doesn't refetch data that hasn't changed. insertRow/deleteRow
 // clear the relevant key so the next render pulls fresh data for it.
@@ -482,8 +497,8 @@ function activityByDate(){
     if(!map.has(e.date)) map.set(e.date, new Set());
     map.get(e.date).add(key);
   });
-  add(cache.reading,'reading'); add(cache.gym,'gym'); add(cache.study,'study');
-  add(cache.diet,'diet'); add(cache.journal,'journal'); add(cache.gratitude,'gratitude');
+  add(cache.reading,'reading'); add(cache.gym,'gym'); add(cache.study,'study'); add(cache.work,'work');
+  add(cache.journal,'journal'); add(cache.gratitude,'gratitude');
   add(cache.finance,'finance'); add(cache.todoChecks,'todos');
   return map;
 }
@@ -526,6 +541,12 @@ function renderDashboard(){
   const readMin = cache.reading.reduce((s,e)=>s+(Number(e.minutes)||0),0);
   const gymMin = cache.gym.reduce((s,e)=>s+(Number(e.duration_min)||0),0);
   const studyMin = cache.study.reduce((s,e)=>s+(Number(e.minutes)||0),0);
+  const workMin = cache.work.reduce((s,e)=>s+(Number(e.minutes)||0),0);
+  const deepMin = [
+    ...cache.gym.map(e=>({intensity:e.intensity, min:e.duration_min})),
+    ...cache.study.map(e=>({intensity:e.intensity, min:e.minutes})),
+    ...cache.work.map(e=>({intensity:e.intensity, min:e.minutes})),
+  ].filter(e=>e.intensity==='deep').reduce((s,e)=>s+(Number(e.min)||0),0);
   const wordsCount = cache.words.length;
   const gratitudeCount = cache.gratitude.length;
   const netBalance = cache.finance
@@ -541,6 +562,8 @@ function renderDashboard(){
     <div class="stat"><div class="num">${readMin}</div><div class="lbl">Reading min</div></div>
     <div class="stat"><div class="num">${gymMin}</div><div class="lbl">Gym min</div></div>
     <div class="stat"><div class="num">${studyMin}</div><div class="lbl">Study min</div></div>
+    <div class="stat"><div class="num">${workMin}</div><div class="lbl">Work min</div></div>
+    <div class="stat"><div class="num">${deepMin}</div><div class="lbl">Deep work min</div></div>
     <div class="stat"><div class="num">${wordsCount}</div><div class="lbl">Words learned</div></div>
     <div class="stat"><div class="num">${gratitudeCount}</div><div class="lbl">Gratitude entries</div></div>
     <div class="stat"><div class="num" style="color:${netBalance<0?'var(--danger)':'var(--positive)'}">${netBalance}</div><div class="lbl">Net this month</div></div>
@@ -555,7 +578,8 @@ function renderDashboard(){
     data:{ labels: last21.map(d=>d.slice(5)), datasets:[
       { label:'Reading', data: byDay(cache.reading,'minutes'), backgroundColor:'#a8672a' },
       { label:'Gym', data: byDay(cache.gym,'duration_min'), backgroundColor:'#a8502f' },
-      { label:'Study', data: byDay(cache.study,'minutes'), backgroundColor:'#3f7a54' }
+      { label:'Study', data: byDay(cache.study,'minutes'), backgroundColor:'#3f7a54' },
+      { label:'Work', data: byDay(cache.work,'minutes'), backgroundColor:'#6a5a8c' }
     ]},
     options:{ scales:{ x:{stacked:true, ticks:{color:'#6b5c40'}, grid:{display:false}}, y:{stacked:true, ticks:{color:'#6b5c40'}, grid:{color:'#ddccaa'}} },
       plugins:{ legend:{labels:{color:'#33291a'}} } }
