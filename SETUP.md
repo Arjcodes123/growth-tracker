@@ -19,7 +19,7 @@ Files in this folder:
 
 - [ ] Open your project, **SQL Editor**, New query
 - [ ] Paste the entire contents of `schema.sql`, **Run**
-- [ ] Confirm no errors (8 tables should now exist: `reading_entries`, `words`, `gym_logs`, `study_logs`, `diet_logs`, `journal_entries`, `gratitude_entries`, `finance_entries`, all with row-level security enabled)
+- [ ] Confirm no errors (10 tables should now exist: `reading_entries`, `words`, `gym_logs`, `study_logs`, `diet_logs`, `journal_entries`, `gratitude_entries`, `finance_entries`, `todos`, `todo_checks`, all with row-level security enabled)
 
 ## 3. Set up "Sign in with Google"
 

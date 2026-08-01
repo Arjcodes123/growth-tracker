@@ -1,25 +1,26 @@
 :root{
-  --bg:#0b0c0f; --panel:#15171c; --panel2:#1b1e25; --border:#262a33;
-  --text:#eef0f3; --muted:#8b909c; --muted-dim:#5d6270;
-  --accent:#d7a24a; --accent-ink:#1a1305; --accent-soft:rgba(215,162,74,.14);
-  --positive:#6bbf8e; --terracotta:#c9714f; --danger:#d9707a;
-  --radius:14px; --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 24px -12px rgba(0,0,0,.5);
+  --bg:#efe7d3; --panel:#fbf6e9; --panel2:#f4ecd8; --border:#ddccaa;
+  --text:#33291a; --muted:#8a7a5c; --muted-dim:#6b5c40;
+  --accent:#a8672a; --accent-ink:#fbf6e9; --accent-soft:rgba(168,103,42,.14);
+  --positive:#3f7a54; --terracotta:#a8502f; --danger:#a13a3a;
+  --radius:14px; --shadow:0 1px 2px rgba(60,45,15,.08), 0 10px 22px -12px rgba(60,45,15,.22);
+  --font-hand:'Caveat', cursive;
 }
 *{box-sizing:border-box}
 body{
   margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
   background:
-    radial-gradient(1200px 600px at 15% -10%, rgba(215,162,74,.06), transparent 60%),
+    radial-gradient(1100px 550px at 12% -8%, rgba(168,103,42,.08), transparent 60%),
     var(--bg);
   color:var(--text); -webkit-font-smoothing:antialiased;
 }
 .wrap{max-width:980px;margin:0 auto;padding:32px 20px 80px;}
-h1{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;margin:0;}
+h1{font-family:var(--font-hand);font-size:2.1rem;font-weight:700;letter-spacing:0;margin:0;line-height:1;}
 .sub{color:var(--muted);font-size:.92rem;margin:6px 0 24px;}
 .tabs{display:flex;gap:4px;margin-bottom:24px;background:var(--panel);border:1px solid var(--border);
-  border-radius:999px;padding:4px;flex-wrap:wrap;width:fit-content;}
-.tab{padding:8px 16px;cursor:pointer;color:var(--muted);border-radius:999px;font-size:.85rem;font-weight:600;
-  transition:color .15s, background .15s;}
+  border-radius:999px;padding:4px;flex-wrap:wrap;width:fit-content;box-shadow:var(--shadow);}
+.tab{padding:8px 16px;cursor:pointer;color:var(--muted);border-radius:999px;font-family:var(--font-hand);
+  font-size:1.05rem;font-weight:700;transition:color .15s, background .15s;}
 .tab:hover{color:var(--text);}
 .tab.active{color:var(--accent-ink);background:var(--accent);}
 .panel{display:none;}
@@ -48,28 +49,28 @@ textarea{min-height:76px;resize:vertical;line-height:1.5;}
 .btn.secondary{background:transparent;color:var(--text);border:1px solid var(--border);font-weight:600;}
 .btn.secondary:hover{background:var(--panel2);filter:none;}
 .btn.small{padding:7px 12px;font-size:.8rem;}
-.btn.danger{background:var(--danger);color:#1a0a0c;}
+.btn.danger{background:var(--danger);color:#fdf3ee;}
 .btn.google{
   background:#fff;color:#1f1f1f;display:flex;align-items:center;justify-content:center;gap:10px;
-  width:100%;padding:12px 16px;font-size:.92rem;
+  width:100%;padding:12px 16px;font-size:.92rem;border:1px solid var(--border);
 }
 .btn.google:hover{filter:brightness(.97);}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;}
 .stat{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;
   text-align:center;box-shadow:var(--shadow);}
-.stat .num{font-size:1.7rem;font-weight:800;color:var(--accent);letter-spacing:-.02em;}
+.stat .num{font-size:1.8rem;font-weight:800;color:var(--accent);letter-spacing:-.02em;}
 .stat .lbl{font-size:.72rem;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:.05em;}
 canvas{max-height:280px;}
 .entry{border-bottom:1px solid var(--border);padding:14px 0;}
 .entry:last-child{border-bottom:none;}
 .entry-head{display:flex;justify-content:space-between;gap:10px;font-size:.8rem;color:var(--muted);}
-.entry-title{color:var(--text);font-weight:700;}
-.entry-note{margin-top:6px;font-size:.9rem;line-height:1.55;white-space:pre-wrap;color:#cdd0d6;}
+.entry-title{color:var(--text);font-weight:700;font-family:var(--font-hand);font-size:1.25rem;}
+.entry-note{margin-top:6px;font-size:.9rem;line-height:1.55;white-space:pre-wrap;color:#4a3f2c;}
 .tag{display:inline-block;background:var(--panel2);border:1px solid var(--border);border-radius:6px;
   padding:3px 9px;font-size:.74rem;margin:4px 6px 0 0;color:var(--positive);}
 .empty{color:var(--muted);font-size:.9rem;text-align:center;padding:28px 0;}
 .toprow{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
-.toprow strong{font-size:.95rem;}
+.toprow strong{font-family:var(--font-hand);font-size:1.35rem;font-weight:700;}
 .search{margin-bottom:12px;}
 .footer-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;}
 .flash{position:fixed;top:18px;left:50%;transform:translateX(-50%);display:none;z-index:50;
@@ -86,3 +87,24 @@ a{color:var(--accent);}
 #topbar h1{display:flex;align-items:center;gap:8px;}
 .mark{width:26px;height:26px;border-radius:7px;background:var(--accent);display:inline-flex;
   align-items:center;justify-content:center;flex:none;}
+
+.todo-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:16px;}
+.todo-section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;box-shadow:var(--shadow);}
+.todo-list{display:flex;flex-direction:column;}
+.todo-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--border);}
+.todo-row:last-child{border-bottom:none;}
+.todo-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex:none;cursor:pointer;}
+.todo-title{flex:1;font-size:.92rem;}
+.todo-row.done .todo-title{text-decoration:line-through;color:var(--muted);}
+.todo-row .todo-archive{flex:none;padding:2px 9px;font-size:.9rem;line-height:1;}
+.todo-add-row{display:flex;gap:6px;margin-top:10px;}
+.todo-add-row input{flex:1;padding:7px 10px;font-size:.85rem;}
+
+.heatmap-grid{display:flex;gap:3px;overflow-x:auto;padding-bottom:4px;}
+.heatmap-col{display:flex;flex-direction:column;gap:3px;flex:none;}
+.heatmap-cell{width:13px;height:13px;border-radius:3px;background:var(--panel2);}
+.heatmap-cell.level-1{background:rgba(168,103,42,.32);}
+.heatmap-cell.level-2{background:rgba(168,103,42,.54);}
+.heatmap-cell.level-3{background:rgba(168,103,42,.76);}
+.heatmap-cell.level-4{background:rgba(168,103,42,1);}

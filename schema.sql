@@ -86,6 +86,24 @@ create table finance_entries (
   created_at timestamptz default now()
 );
 
+create table todos (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null default auth.uid(),
+  title text not null,
+  cadence text not null default 'daily', -- 'daily' | 'weekly' | 'monthly' | 'yearly'
+  archived boolean not null default false,
+  created_at timestamptz default now()
+);
+
+create table todo_checks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null default auth.uid(),
+  todo_id uuid references todos on delete cascade not null,
+  date date not null default current_date,
+  created_at timestamptz default now(),
+  unique (todo_id, date)
+);
+
 alter table reading_entries enable row level security;
 alter table words enable row level security;
 alter table gym_logs enable row level security;
@@ -94,6 +112,8 @@ alter table journal_entries enable row level security;
 alter table gratitude_entries enable row level security;
 alter table diet_logs enable row level security;
 alter table finance_entries enable row level security;
+alter table todos enable row level security;
+alter table todo_checks enable row level security;
 
 create policy "own rows" on reading_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on words for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -103,6 +123,8 @@ create policy "own rows" on journal_entries for all using (auth.uid() = user_id)
 create policy "own rows" on gratitude_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on diet_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on finance_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own rows" on todos for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own rows" on todo_checks for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Explicit grants so the app works regardless of the project's
 -- "automatically expose new tables" default. Only signed-in users
@@ -112,5 +134,5 @@ create policy "own rows" on finance_entries for all using (auth.uid() = user_id)
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on
   reading_entries, words, gym_logs, study_logs, journal_entries,
-  gratitude_entries, diet_logs, finance_entries
+  gratitude_entries, diet_logs, finance_entries, todos, todo_checks
 to authenticated;

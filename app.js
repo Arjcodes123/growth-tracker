@@ -17,7 +17,7 @@ const SIMPLE_TRACKERS = [
 
 // Trackers that share the "date + optional title + freeform content" shape.
 const CONTENT_TRACKERS = [
-  { key:'journal', table:'journal_entries', prefix:'j', hasTitle:true, titleFallback:'(untitled)', dashboard:false },
+  { key:'journal', table:'journal_entries', prefix:'j', hasTitle:true, titleFallback:'(untitled)', dashboard:true },
   { key:'gratitude', table:'gratitude_entries', prefix:'gr', hasTitle:false, titleFallback:'Gratitude', dashboard:true },
 ];
 
@@ -66,7 +66,7 @@ function onLoggedIn(){
   document.getElementById('whoami').textContent = user.email;
   document.getElementById('subline').style.display='none';
   document.getElementById('app').style.display='block';
-  ['r-date','g-date','s-date','d-date','j-date','gr-date','f-date'].forEach(id=>{ document.getElementById(id).valueAsDate = new Date(); });
+  ['r-date','g-date','s-date','d-date','j-date','gr-date','f-date'].forEach(id=>{ document.getElementById(id).value = todayLocal(); });
   if(document.getElementById('r-words').children.length === 0) addWordRow();
   renderAll();
 }
@@ -87,7 +87,8 @@ document.querySelectorAll('.tab').forEach(t=>{
 // after a write instead of refetching everything.
 const TABLE_KEY = {
   reading_entries:'reading', words:'words', gym_logs:'gym', study_logs:'study',
-  diet_logs:'diet', journal_entries:'journal', gratitude_entries:'gratitude', finance_entries:'finance'
+  diet_logs:'diet', journal_entries:'journal', gratitude_entries:'gratitude', finance_entries:'finance',
+  todos:'todos'
 };
 const ROW_LIMIT = 500; // caps payload size regardless of how much history a user builds up
 
@@ -304,15 +305,126 @@ function renderVocab(filter=''){
     <div class="entry-note">${esc(w.meaning)}</div></div>`).join('');
 }
 
+// ---- todos ----
+const TODO_CADENCES = [
+  { key:'daily', label:'Today' },
+  { key:'weekly', label:'This Week' },
+  { key:'monthly', label:'This Month' },
+  { key:'yearly', label:'This Year' },
+];
+
+// Monday-start week. All period boundaries build on the local-date helpers
+// above (dateStr/todayLocal) so "today" agrees everywhere in the app.
+function startOfWeek(d){
+  const dow = (d.getDay()+6)%7; // 0=Mon..6=Sun
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()-dow);
+}
+function periodStartStr(cadence, ref=new Date()){
+  let start;
+  if(cadence==='weekly') start = startOfWeek(ref);
+  else if(cadence==='monthly') start = new Date(ref.getFullYear(), ref.getMonth(), 1);
+  else if(cadence==='yearly') start = new Date(ref.getFullYear(), 0, 1);
+  else start = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate()); // daily
+  return dateStr(start);
+}
+
+async function fetchTodos(){
+  const {data,error} = await sb.from('todos').select('*').eq('archived', false).order('created_at',{ascending:true});
+  if(error){ flash(error.message, true); return []; }
+  return data;
+}
+async function fetchTodoChecks(){
+  const sinceYear = periodStartStr('yearly');
+  const {data,error} = await sb.from('todo_checks').select('*').gte('date', sinceYear);
+  if(error){ flash(error.message, true); return []; }
+  return data;
+}
+
+async function addTodo(cadence, title){
+  const r = await insertRow('todos', {title, cadence});
+  if(!r) return;
+  renderAll();
+}
+async function checkTodo(todoId){
+  const {error} = await sb.from('todo_checks')
+    .upsert({todo_id:todoId, user_id:user.id, date:todayLocal()}, {onConflict:'todo_id,date', ignoreDuplicates:true});
+  if(error){ flash(error.message, true); return; }
+  loaded.delete('todoChecks');
+  renderAll();
+}
+async function uncheckTodo(todoId, cadence){
+  const start = periodStartStr(cadence);
+  const {error} = await sb.from('todo_checks').delete()
+    .eq('todo_id', todoId).eq('user_id', user.id).gte('date', start);
+  if(error){ flash(error.message, true); return; }
+  loaded.delete('todoChecks');
+  renderAll();
+}
+async function archiveTodo(todoId){
+  const {error} = await sb.from('todos').update({archived:true}).eq('id', todoId);
+  if(error){ flash(error.message, true); return; }
+  loaded.delete('todos');
+  renderAll();
+}
+
+function renderTodoBoard(){
+  const board = document.getElementById('todo-board');
+  board.innerHTML = TODO_CADENCES.map(cfg=>{
+    const start = periodStartStr(cfg.key);
+    const items = cache.todos.filter(t=>t.cadence===cfg.key);
+    const rows = items.length ? items.map(t=>{
+      const done = cache.todoChecks.some(c=>c.todo_id===t.id && c.date>=start);
+      return `
+        <div class="todo-row ${done?'done':''}" data-id="${t.id}" data-cadence="${cfg.key}">
+          <input type="checkbox" class="todo-check" ${done?'checked':''}>
+          <span class="todo-title">${esc(t.title)}</span>
+          <button class="btn secondary small todo-archive" title="Remove">&times;</button>
+        </div>`;
+    }).join('') : '<div class="empty">Nothing yet.</div>';
+    return `
+      <div class="todo-section">
+        <div class="toprow"><strong>${cfg.label}</strong></div>
+        <div class="todo-list">${rows}</div>
+        <div class="todo-add-row">
+          <input type="text" class="todo-add-input" data-cadence="${cfg.key}" placeholder="Add a to-do">
+          <button class="btn secondary small todo-add-btn" data-cadence="${cfg.key}">Add</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  board.querySelectorAll('.todo-check').forEach(cb=>{
+    cb.addEventListener('change', e=>{
+      const row = e.target.closest('.todo-row');
+      if(e.target.checked) checkTodo(row.dataset.id);
+      else uncheckTodo(row.dataset.id, row.dataset.cadence);
+    });
+  });
+  board.querySelectorAll('.todo-archive').forEach(btn=>{
+    btn.addEventListener('click', e=>archiveTodo(e.target.closest('.todo-row').dataset.id));
+  });
+  const addFromInput = (cadence)=>{
+    const input = board.querySelector(`.todo-add-input[data-cadence="${cadence}"]`);
+    const title = input.value.trim();
+    if(!title) return;
+    addTodo(cadence, title);
+  };
+  board.querySelectorAll('.todo-add-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>addFromInput(btn.dataset.cadence));
+  });
+  board.querySelectorAll('.todo-add-input').forEach(inp=>{
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter') addFromInput(inp.dataset.cadence); });
+  });
+}
+
 // ---- render orchestration ----
-let cache = { reading:[], gym:[], study:[], diet:[], journal:[], gratitude:[], finance:[], words:[] };
+let cache = { reading:[], gym:[], study:[], diet:[], journal:[], gratitude:[], finance:[], words:[], todos:[], todoChecks:[] };
 // Tracks which cache keys already reflect the server, so switching tabs back
 // and forth doesn't refetch data that hasn't changed. insertRow/deleteRow
 // clear the relevant key so the next render pulls fresh data for it.
 let loaded = new Set();
-async function ensureLoaded(key, table){
+async function ensureLoaded(key, table, fetcher){
   if(loaded.has(key)) return;
-  cache[key] = await fetchAll(table);
+  cache[key] = fetcher ? await fetcher() : await fetchAll(table);
   loaded.add(key);
 }
 
@@ -330,23 +442,84 @@ async function renderAll(){
     if(activeTab===cfg.key || (cfg.dashboard && activeTab==='dashboard')) await ensureLoaded(cfg.key, cfg.table);
   }
   if(activeTab==='finance' || activeTab==='dashboard') await ensureLoaded('finance', 'finance_entries');
+  if(activeTab==='dashboard'){
+    await ensureLoaded('todos', 'todos', fetchTodos);
+    await ensureLoaded('todoChecks', 'todo_checks', fetchTodoChecks);
+  }
 
   if(activeTab==='reading') renderReading();
   for(const cfg of SIMPLE_TRACKERS){ if(activeTab===cfg.key) renderSimpleTracker(cfg); }
   for(const cfg of CONTENT_TRACKERS){ if(activeTab===cfg.key) renderContentTracker(cfg); }
   if(activeTab==='finance') renderFinance();
   if(activeTab==='vocab') renderVocab(document.getElementById('vocab-search').value);
-  if(activeTab==='dashboard') renderDashboard();
+  if(activeTab==='dashboard'){ renderTodoBoard(); renderDashboard(); }
 }
 
 // ---- dashboard ----
 let charts = {};
-function dateStr(d){ return d.toISOString().slice(0,10); }
+// Local calendar date, not UTC (toISOString() is UTC and can be a day off from
+// the user's actual "today" depending on timezone/time of day).
+function dateStr(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function todayLocal(){ return dateStr(new Date()); }
 function lastNDates(n){ const arr=[]; const t=new Date(); for(let i=n-1;i>=0;i--){ const d=new Date(t); d.setDate(d.getDate()-i); arr.push(dateStr(d)); } return arr; }
 function isThisMonth(dateStr){
   const d = new Date(dateStr+'T00:00:00');
   const now = new Date();
   return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
+}
+
+// Single source of truth for "what was active on date X", shared by the
+// day-streak stat and the heatmap so they can't disagree about what counts.
+function activityByDate(){
+  const map = new Map(); // date -> Set of tracker keys active that day
+  const add = (rows, key) => rows.forEach(e=>{
+    if(!e.date) return;
+    if(!map.has(e.date)) map.set(e.date, new Set());
+    map.get(e.date).add(key);
+  });
+  add(cache.reading,'reading'); add(cache.gym,'gym'); add(cache.study,'study');
+  add(cache.diet,'diet'); add(cache.journal,'journal'); add(cache.gratitude,'gratitude');
+  add(cache.finance,'finance'); add(cache.todoChecks,'todos');
+  return map;
+}
+
+function renderHeatmap(activity){
+  const el = document.getElementById('heatmap');
+  if(!el) return;
+  const weeks = 13;
+  const today = new Date();
+  const firstWeekStart = startOfWeek(today);
+  firstWeekStart.setDate(firstWeekStart.getDate() - (weeks-1)*7);
+
+  let maxCount = 1;
+  const cols = [];
+  for(let w=0; w<weeks; w++){
+    const col = [];
+    for(let dow=0; dow<7; dow++){
+      const d = new Date(firstWeekStart);
+      d.setDate(d.getDate() + w*7 + dow);
+      const ds = dateStr(d);
+      const count = activity.get(ds)?.size || 0;
+      maxCount = Math.max(maxCount, count);
+      col.push({date:ds, count});
+    }
+    cols.push(col);
+  }
+  const levelFor = c => {
+    if(c===0) return 0;
+    const r = c/maxCount;
+    return r>.75 ? 4 : r>.5 ? 3 : r>.25 ? 2 : 1;
+  };
+  el.innerHTML = `<div class="heatmap-grid">${cols.map(col=>
+    `<div class="heatmap-col">${col.map(c=>
+      `<div class="heatmap-cell level-${levelFor(c.count)}" title="${c.date}: ${c.count} tracker${c.count===1?'':'s'} active"></div>`
+    ).join('')}</div>`
+  ).join('')}</div>`;
 }
 
 function renderDashboard(){
@@ -359,9 +532,10 @@ function renderDashboard(){
     .filter(e=>isThisMonth(e.date))
     .reduce((s,e)=>s+(e.type==='income'?1:-1)*(Number(e.amount)||0),0);
 
-  const days = new Set([...cache.reading,...cache.gym,...cache.study,...cache.diet,...cache.gratitude].map(e=>e.date));
+  const activity = activityByDate();
   let streak=0; let d=new Date();
-  while(days.has(dateStr(d))){ streak++; d.setDate(d.getDate()-1); }
+  while(activity.has(dateStr(d))){ streak++; d.setDate(d.getDate()-1); }
+  renderHeatmap(activity);
 
   document.getElementById('stats').innerHTML = `
     <div class="stat"><div class="num">${readMin}</div><div class="lbl">Reading min</div></div>
@@ -379,12 +553,12 @@ function renderDashboard(){
   charts.time = new Chart(document.getElementById('chart-time'), {
     type:'bar',
     data:{ labels: last21.map(d=>d.slice(5)), datasets:[
-      { label:'Reading', data: byDay(cache.reading,'minutes'), backgroundColor:'#d7a24a' },
-      { label:'Gym', data: byDay(cache.gym,'duration_min'), backgroundColor:'#c9714f' },
-      { label:'Study', data: byDay(cache.study,'minutes'), backgroundColor:'#6bbf8e' }
+      { label:'Reading', data: byDay(cache.reading,'minutes'), backgroundColor:'#a8672a' },
+      { label:'Gym', data: byDay(cache.gym,'duration_min'), backgroundColor:'#a8502f' },
+      { label:'Study', data: byDay(cache.study,'minutes'), backgroundColor:'#3f7a54' }
     ]},
-    options:{ scales:{ x:{stacked:true, ticks:{color:'#8b909c'}, grid:{display:false}}, y:{stacked:true, ticks:{color:'#8b909c'}, grid:{color:'#262a33'}} },
-      plugins:{ legend:{labels:{color:'#eef0f3'}} } }
+    options:{ scales:{ x:{stacked:true, ticks:{color:'#6b5c40'}, grid:{display:false}}, y:{stacked:true, ticks:{color:'#6b5c40'}, grid:{color:'#ddccaa'}} },
+      plugins:{ legend:{labels:{color:'#33291a'}} } }
   });
 
   const sorted = [...cache.words].sort((a,b)=>a.date.localeCompare(b.date));
@@ -394,9 +568,15 @@ function renderDashboard(){
   if(charts.words) charts.words.destroy();
   charts.words = new Chart(document.getElementById('chart-words'), {
     type:'line',
-    data:{ labels: dates, datasets:[{ label:'Cumulative words', data: cum, borderColor:'#d7a24a', backgroundColor:'rgba(215,162,74,.15)', fill:true, tension:.25 }] },
-    options:{ scales:{ y:{beginAtZero:true, ticks:{color:'#8b909c'}, grid:{color:'#262a33'}}, x:{ticks:{color:'#8b909c'}, grid:{display:false}} }, plugins:{legend:{display:false}} }
+    data:{ labels: dates, datasets:[{ label:'Cumulative words', data: cum, borderColor:'#a8672a', backgroundColor:'rgba(168,103,42,.15)', fill:true, tension:.25 }] },
+    options:{ scales:{ y:{beginAtZero:true, ticks:{color:'#6b5c40'}, grid:{color:'#ddccaa'}}, x:{ticks:{color:'#6b5c40'}, grid:{display:false}} }, plugins:{legend:{display:false}} }
   });
 }
 
 checkSession();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(err=>console.error('SW registration failed', err));
+  });
+}
