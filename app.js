@@ -604,3 +604,48 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(err=>console.error('SW registration failed', err));
   });
 }
+
+// ---- install button ----
+let deferredInstallPrompt = null;
+function isStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+function isIOS(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+function updateInstallUI(){
+  const btn = document.getElementById('install-btn');
+  const hint = document.getElementById('install-hint');
+  if(!btn) return;
+  btn.style.display = 'none';
+  hint.style.display = 'none';
+  if(isStandalone()){
+    hint.textContent = 'This app is already installed.';
+    hint.style.display = 'block';
+  } else if(deferredInstallPrompt){
+    btn.style.display = 'inline-block';
+  } else if(isIOS()){
+    hint.textContent = 'To install: tap the Share icon in Safari, then "Add to Home Screen."';
+    hint.style.display = 'block';
+  } else {
+    hint.textContent = "Install isn't available in this browser yet — try Chrome or Edge.";
+    hint.style.display = 'block';
+  }
+}
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  updateInstallUI();
+});
+window.addEventListener('appinstalled', ()=>{
+  deferredInstallPrompt = null;
+  updateInstallUI();
+});
+document.getElementById('install-btn').addEventListener('click', async ()=>{
+  if(!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  updateInstallUI();
+});
+updateInstallUI();
