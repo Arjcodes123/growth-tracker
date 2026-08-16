@@ -112,6 +112,23 @@ create table profiles (
   last_active_at timestamptz not null default now()
 );
 
+-- Blog posts. Published posts are readable by anyone (the public blog
+-- pages fetch them with the anon key); drafts are owner-only.
+create table posts (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  title text not null,
+  meta_description text,
+  focus_keyphrase text,
+  related_keywords text,
+  cover_image_url text,
+  body text not null default '',
+  status text not null default 'draft' check (status in ('draft','published')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  published_at timestamptz
+);
+
 create table user_settings (
   user_id uuid primary key references auth.users not null default auth.uid(),
   enabled_tabs jsonb not null default '["reading","gym","study","work","journal","gratitude","finance","vocab"]',
@@ -138,6 +155,7 @@ create table todo_checks (
 );
 
 alter table profiles enable row level security;
+alter table posts enable row level security;
 alter table reading_entries enable row level security;
 alter table words enable row level security;
 alter table gym_logs enable row level security;
@@ -159,6 +177,13 @@ create policy "own profile update" on profiles for update using (auth.uid() = id
 create policy "own profile insert" on profiles for insert with check (auth.uid() = id);
 create policy "admin reads all profiles" on profiles for select using (auth.jwt() ->> 'email' = 'abdulrehmanjavaid16@gmail.com');
 
+-- Anyone (including signed-out visitors) can read published posts; only the
+-- site owner can see drafts or write/delete anything.
+create policy "anyone reads published posts" on posts for select using (status = 'published');
+create policy "admin manages all posts" on posts for all
+  using (auth.jwt() ->> 'email' = 'abdulrehmanjavaid16@gmail.com')
+  with check (auth.jwt() ->> 'email' = 'abdulrehmanjavaid16@gmail.com');
+
 create policy "own rows" on reading_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on words for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on gym_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -178,11 +203,14 @@ create policy "own rows" on todo_checks for all using (auth.uid() = user_id) wit
 -- that down to each user's own rows. The `anon` role gets nothing,
 -- since every screen in the app requires a signed-in session.
 grant usage on schema public to authenticated;
+grant usage on schema public to anon;
 grant select, insert, update, delete on
   reading_entries, words, gym_logs, study_logs, work_logs, journal_entries,
   gratitude_entries, finance_entries, receivables, user_settings, todos, todo_checks
 to authenticated;
 grant select, insert, update on profiles to authenticated;
+grant select on posts to anon;
+grant select, insert, update, delete on posts to authenticated;
 
 -- Auto-create a profile row the moment someone signs up, so signup counts
 -- are accurate from the first session onward without relying on the client.

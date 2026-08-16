@@ -40,10 +40,53 @@
   </div>
 
   <div id="dashboard" style="display:none;">
-    <div class="stats" id="admin-stats"></div>
-    <div class="card"><div class="toprow"><strong>Signups, last 30 days</strong></div><canvas id="chart-signups"></canvas></div>
-    <div class="card"><div class="toprow"><strong>Most recent signups</strong></div><div id="admin-list"></div></div>
-    <p class="hint" id="admin-error" style="color:var(--danger);"></p>
+    <div class="tabs">
+      <div class="tab active" data-tab="overview">Overview</div>
+      <div class="tab" data-tab="blog">Blog</div>
+    </div>
+
+    <div class="panel active" id="panel-overview">
+      <div class="stats" id="admin-stats"></div>
+      <div class="card"><div class="toprow"><strong>Signups, last 30 days</strong></div><canvas id="chart-signups"></canvas></div>
+      <div class="card"><div class="toprow"><strong>Most recent signups</strong></div><div id="admin-list"></div></div>
+      <p class="hint" id="admin-error" style="color:var(--danger);"></p>
+    </div>
+
+    <div class="panel" id="panel-blog">
+      <div class="card" id="blog-list-card">
+        <div class="toprow"><strong>Posts</strong><button class="btn small" id="post-new-btn">+ New post</button></div>
+        <div id="blog-list"></div>
+      </div>
+
+      <div class="card" id="post-editor-card" style="display:none;">
+        <div class="row">
+          <div><label>Title</label><input type="text" id="post-title" placeholder="Post title"></div>
+          <div><label>Slug</label><input type="text" id="post-slug" placeholder="post-slug"></div>
+        </div>
+        <label>Meta description <span id="post-meta-count" class="hint" style="display:inline;"></span></label>
+        <textarea id="post-meta-description" style="min-height:60px;" placeholder="Shown in search results. Aim for 120 to 160 characters."></textarea>
+        <div class="row">
+          <div><label>Focus keyphrase</label><input type="text" id="post-keyphrase" placeholder="e.g. habit tracking"></div>
+          <div><label>Related keywords (comma separated)</label><input type="text" id="post-related" placeholder="e.g. routine, streak, consistency"></div>
+        </div>
+        <label>Cover image URL</label>
+        <input type="text" id="post-cover" placeholder="https://...">
+        <label>Body (Markdown, with raw HTML allowed inline)</label>
+        <textarea id="post-body" style="min-height:320px;font-family:ui-monospace,Consolas,monospace;font-size:.85rem;" placeholder="Write the post here..."></textarea>
+
+        <div class="card" style="background:var(--panel2);margin-top:16px;">
+          <div class="toprow"><strong>SEO &amp; readability</strong><span id="seo-summary"></span></div>
+          <div id="seo-checks"></div>
+        </div>
+
+        <div class="footer-actions">
+          <button class="btn secondary" id="post-cancel-btn">Cancel</button>
+          <button class="btn secondary" id="post-save-draft-btn">Save draft</button>
+          <button class="btn" id="post-publish-btn">Publish</button>
+          <button class="btn danger" id="post-delete-btn" style="display:none;margin-left:auto;">Delete</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 <script src="admin.js"></script>
