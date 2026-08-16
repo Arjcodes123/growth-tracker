@@ -2,7 +2,7 @@
   "name": "Groundwork",
   "short_name": "Groundwork",
   "description": "A private log for reading, training, study, work, finance and journaling.",
-  "start_url": "/",
+  "start_url": "/app.html",
   "scope": "/",
   "display": "standalone",
   "background_color": "#efe7d3",

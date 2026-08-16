@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Groundwork</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="A private log for reading, training, study, work, finance and journaling, with a dashboard that shows your streaks over time.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2333291a'/%3E%3Cg fill='%23fbf6e9'%3E%3Crect x='6' y='6' width='19' height='6'/%3E%3Crect x='6' y='6' width='6' height='20'/%3E%3Crect x='6' y='20' width='19' height='6'/%3E%3Crect x='18' y='15' width='7' height='5'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#a8672a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Groundwork">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div id="topbar" style="display:none;">
+    <h1><span class="mark"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><g fill="#fbf6e9"><rect x="4" y="4" width="15" height="4.5"/><rect x="4" y="4" width="4.5" height="16"/><rect x="4" y="15.5" width="15" height="4.5"/><rect x="14" y="11.5" width="5" height="4.5"/></g></svg></span>Groundwork</h1>
+    <div class="who" id="whoami"></div>
+  </div>
+  <p class="sub" id="subline">Reading, gym, study, work, finance and journaling in one log, with a dashboard that shows your streaks over time.</p>
+  <div id="flash" class="flash"></div>
+
+  <!-- AUTH SCREEN -->
+  <div id="screen-auth" class="center-screen" style="display:none;">
+    <span class="mark" style="width:44px;height:44px;border-radius:12px;margin-bottom:18px;display:inline-flex;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><g fill="#fbf6e9"><rect x="4" y="4" width="15" height="4.5"/><rect x="4" y="4" width="4.5" height="16"/><rect x="4" y="15.5" width="15" height="4.5"/><rect x="14" y="11.5" width="5" height="4.5"/></g></svg>
+    </span>
+    <h1>Groundwork</h1>
+    <p class="sub">Sign in to start your log.</p>
+    <div class="card">
+      <button class="btn google" id="google-signin">
+        <svg width="18" height="18" viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.5 13.2l7.9 6.1C12.3 13 17.6 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.6c-.5 3-2.2 5.5-4.7 7.2l7.4 5.7C43.9 37.6 46.5 31.6 46.5 24.5z"/>
+          <path fill="#FBBC05" d="M10.4 19.3c-.5 1.5-.8 3.1-.8 4.7s.3 3.2.8 4.7l-7.9 6.1C.9 31.6 0 28.1 0 24s.9-7.6 2.5-10.8l7.9 6.1z"/>
+          <path fill="#34A853" d="M24 48c6.4 0 11.9-2.1 15.8-5.9l-7.4-5.7c-2.1 1.4-4.9 2.3-8.4 2.3-6.4 0-11.7-3.5-13.6-9.3l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/>
+        </svg>
+        Continue with Google
+      </button>
+      <p class="hint">Your entries are private to your account. Nothing is shared with anyone else who uses this app.</p>
+    </div>
+  </div>
+
+  <!-- ONBOARDING SCREEN -->
+  <div id="screen-onboarding" class="center-screen" style="display:none; max-width:480px;">
+    <span class="mark" style="width:44px;height:44px;border-radius:12px;margin-bottom:18px;display:inline-flex;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><g fill="#fbf6e9"><rect x="4" y="4" width="15" height="4.5"/><rect x="4" y="4" width="4.5" height="16"/><rect x="4" y="15.5" width="15" height="4.5"/><rect x="14" y="11.5" width="5" height="4.5"/></g></svg>
+    </span>
+    <h1>Welcome to Groundwork</h1>
+    <p class="sub">Pick what you want to track. You can change this anytime in Settings.</p>
+    <div class="card" style="text-align:left;">
+      <div id="onboard-list"></div>
+      <div class="footer-actions"><button class="btn" id="onboard-continue">Start tracking</button></div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app" style="display:none;">
+    <div class="tabs">
+      <div class="tab active" data-tab="dashboard">Dashboard</div>
+      <div class="tab" data-tab="reading">Reading</div>
+      <div class="tab" data-tab="gym">Gym</div>
+      <div class="tab" data-tab="study">Study</div>
+      <div class="tab" data-tab="work">Work</div>
+      <div class="tab" data-tab="journal">Journal</div>
+      <div class="tab" data-tab="gratitude">Gratitude</div>
+      <div class="tab" data-tab="finance">Finance</div>
+      <div class="tab" data-tab="vocab">Vocabulary</div>
+      <div class="tab" data-tab="settings">Settings</div>
+    </div>
+
+    <div class="panel active" id="panel-dashboard">
+      <div class="todo-board" id="todo-board"></div>
+      <div class="toprow"><strong>Ground Level</strong></div>
+      <div class="insight" id="dash-insight"></div>
+      <div class="stats" id="stats"></div>
+      <div class="card"><div class="toprow"><strong>Activity, last 13 weeks</strong></div><div id="heatmap"></div></div>
+      <div class="card"><div class="toprow"><strong>Minutes per day, last 21 days</strong></div><canvas id="chart-time"></canvas></div>
+      <div class="card"><div class="toprow"><strong>Cumulative words learned</strong></div><canvas id="chart-words"></canvas></div>
+    </div>
+
+    <div class="panel" id="panel-reading">
+      <div class="card" id="r-stats"></div>
+      <div class="card">
+        <div class="row">
+          <div><label>Date</label><input type="date" id="r-date"></div>
+          <div><label>Book</label><input type="text" id="r-book"></div>
+          <div><label>Minutes</label><input type="number" id="r-minutes"></div>
+        </div>
+        <label>Learning / takeaway</label>
+        <textarea id="r-learning"></textarea>
+        <label>New words</label>
+        <div class="words-list" id="r-words"></div>
+        <button class="btn secondary small" id="r-addword" style="margin-top:8px;">+ Add word</button>
+        <label>Custom fields</label>
+        <div class="words-list" id="r-fields"></div>
+        <button class="btn secondary small" id="r-addfield" style="margin-top:8px;">+ Add custom field</button>
+        <div class="footer-actions"><button class="btn" id="r-save">Save entry</button></div>
+      </div>
+      <div class="card" id="r-list"></div>
+    </div>
+
+    <div class="panel" id="panel-gym">
+      <div class="card" id="g-stats"></div>
+      <div class="card">
+        <div class="row">
+          <div><label>Date</label><input type="date" id="g-date"></div>
+          <div><label>Workout type</label><input type="text" id="g-field" placeholder="Push / Pull / Legs"></div>
+          <div><label>Minutes</label><input type="number" id="g-num"></div>
+        </div>
+        <label>Intensity</label>
+        <div class="pill-group" id="g-intensity">
+          <button type="button" class="pill" data-value="deep">Deep</button>
+          <button type="button" class="pill active" data-value="medium">Medium</button>
+          <button type="button" class="pill" data-value="shallow">Shallow</button>
+        </div>
+        <label>Notes</label>
+        <textarea id="g-notes"></textarea>
+        <label>Custom fields</label>
+        <div class="words-list" id="g-fields"></div>
+        <button class="btn secondary small" id="g-addfield" style="margin-top:8px;">+ Add custom field</button>
+        <div class="footer-actions"><button class="btn" id="g-save">Save entry</button></div>
+      </div>
+      <div class="card" id="g-list"></div>
+    </div>
+
+    <div class="panel" id="panel-study">
+      <div class="card" id="s-stats"></div>
+      <div class="card">
+        <div class="row">
+          <div><label>Date</label><input type="date" id="s-date"></div>
+          <div><label>Subject</label><input type="text" id="s-field"></div>
+          <div><label>Minutes</label><input type="number" id="s-num"></div>
+        </div>
+        <label>Intensity</label>
+        <div class="pill-group" id="s-intensity">
+          <button type="button" class="pill" data-value="deep">Deep</button>
+          <button type="button" class="pill active" data-value="medium">Medium</button>
+          <button type="button" class="pill" data-value="shallow">Shallow</button>
+        </div>
+        <label>Notes</label>
+        <textarea id="s-notes"></textarea>
+        <label>Custom fields</label>
+        <div class="words-list" id="s-fields"></div>
+        <button class="btn secondary small" id="s-addfield" style="margin-top:8px;">+ Add custom field</button>
+        <div class="footer-actions"><button class="btn" id="s-save">Save entry</button></div>
+      </div>
+      <div class="card" id="s-list"></div>
+    </div>
+
+    <div class="panel" id="panel-work">
+      <div class="card" id="w-stats"></div>
+      <div class="card">
+        <div class="row">
+          <div><label>Date</label><input type="date" id="w-date"></div>
+          <div><label>Project</label><input type="text" id="w-field" placeholder="What did you work on"></div>
+          <div><label>Minutes</label><input type="number" id="w-num"></div>
+        </div>
+        <label>Intensity</label>
+        <div class="pill-group" id="w-intensity">
+          <button type="button" class="pill" data-value="deep">Deep</button>
+          <button type="button" class="pill active" data-value="medium">Medium</button>
+          <button type="button" class="pill" data-value="shallow">Shallow</button>
+        </div>
+        <label>Notes</label>
+        <textarea id="w-notes"></textarea>
+        <label>Custom fields</label>
+        <div class="words-list" id="w-fields"></div>
+        <button class="btn secondary small" id="w-addfield" style="margin-top:8px;">+ Add custom field</button>
+        <div class="footer-actions"><button class="btn" id="w-save">Save entry</button></div>
+      </div>
+      <div class="card" id="w-list"></div>
+    </div>
+
+    <div class="panel" id="panel-journal">
+      <div class="card" id="j-stats"></div>
+      <div class="card">
+        <div class="row">
+          <div><label>Date</label><input type="date" id="j-date"></div>
+          <div><label>Title</label><input type="text" id="j-title"></div>
+        </div>
+        <label>Write</label>
+        <textarea id="j-content" style="min-height:160px;"></textarea>
+        <label>Custom fields</label>
+        <div class="words-list" id="j-fields"></div>
+        <button class="btn secondary small" id="j-addfield" style="margin-top:8px;">+ Add custom field</button>
+        <div class="footer-actions"><button class="btn" id="j-save">Save entry</button></div>
+      </div>
+      <div class="card" id="j-list"></div>
+    </div>
+
+    <div class="panel" id="panel-gratitude">
+      <div class="card" id="gr-stats"></div>
+      <div class="card">
+        <label>Date</label><input type="date" id="gr-date">
+        <label>What are you grateful for today?</label>
+        <textarea id="gr-content" style="min-height:120px;"></textarea>
+        <label>Custom fields</label>
+        <div class="words-list" id="gr-fields"></div>
+        <button class="btn secondary small" id="gr-addfield" style="margin-top:8px;">+ Add custom field</button>
+        <div class="footer-actions"><button class="btn" id="gr-save">Save entry</button></div>
+      </div>
+      <div class="card" id="gr-list"></div>
+    </div>
+
+    <div class="panel" id="panel-finance">
+      <div class="card" id="f-stats"></div>
+      <div class="card">
+        <div class="row">
+          <div><label>Date</label><input type="date" id="f-date"></div>
+          <div><label>Type</label>
+            <select id="f-type">
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+          </div>
+          <div><label>Category</label><input type="text" id="f-category" placeholder="Food / Rent / Salary"></div>
+          <div><label>Amount</label><input type="number" id="f-amount"></div>
+        </div>
+        <label>Notes</label>
+        <textarea id="f-notes"></textarea>
+        <label>Custom fields</label>
+        <div class="words-list" id="f-fields"></div>
+        <button class="btn secondary small" id="f-addfield" style="margin-top:8px;">+ Add custom field</button>
+        <div class="footer-actions"><button class="btn" id="f-save">Save entry</button></div>
+      </div>
+      <div class="card" id="f-list"></div>
+
+      <div class="card">
+        <div class="toprow"><strong>Owed to you</strong></div>
+        <div class="row">
+          <div><label>Date</label><input type="date" id="rc-date"></div>
+          <div><label>From</label><input type="text" id="rc-from" placeholder="Friend or client name"></div>
+          <div><label>Amount</label><input type="number" id="rc-amount"></div>
+        </div>
+        <label>Type</label>
+        <div class="pill-group" id="rc-category">
+          <button type="button" class="pill active" data-value="personal">Personal debt</button>
+          <button type="button" class="pill" data-value="freelance">Freelance payment</button>
+        </div>
+        <label>Notes</label>
+        <textarea id="rc-notes" placeholder="What for, when they said they'd pay, etc."></textarea>
+        <div class="footer-actions"><button class="btn" id="rc-save">Add</button></div>
+      </div>
+      <div class="card" id="rc-list"></div>
+    </div>
+
+    <div class="panel" id="panel-vocab">
+      <div class="card" id="vocab-stats"></div>
+      <div class="card">
+        <input type="text" class="search" id="vocab-search" placeholder="Search words">
+        <div id="vocab-list"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-settings">
+      <div class="card">
+        <div class="toprow"><strong>Customize your tabs</strong></div>
+        <p class="sub" style="margin:0 0 10px;">Turn off what you don't use. Dashboard and Settings always stay on.</p>
+        <div id="settings-tabs-list"></div>
+        <div class="footer-actions"><button class="btn" id="settings-tabs-save">Save</button></div>
+      </div>
+      <div class="card">
+        <button class="btn secondary" id="signout-btn">Sign out</button>
+      </div>
+      <div class="card">
+        <button class="btn" id="install-btn" style="display:none;">Install app</button>
+        <p class="install-hint" id="install-hint" style="display:none;"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

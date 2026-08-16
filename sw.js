@@ -1,5 +1,5 @@
-const CACHE_NAME = 'growth-tracker-v1';
-const SHELL = ['/', '/index.html', '/style.css', '/app.js'];
+const CACHE_NAME = 'growth-tracker-v2';
+const SHELL = ['/app.html', '/style.css', '/app.js'];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
