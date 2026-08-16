@@ -11,16 +11,16 @@ let user = null;
 // Trackers that share the "date + one label field + one numeric field + notes
 // + deep/medium/shallow intensity" shape.
 const SIMPLE_TRACKERS = [
-  { key:'gym', table:'gym_logs', prefix:'g', fieldCol:'workout_type', numCol:'duration_min', numLabel:'min', titleFallback:'Workout' },
-  { key:'study', table:'study_logs', prefix:'s', fieldCol:'subject', numCol:'minutes', numLabel:'min', titleFallback:'Study' },
-  { key:'work', table:'work_logs', prefix:'w', fieldCol:'project', numCol:'minutes', numLabel:'min', titleFallback:'Work' },
+  { key:'gym', table:'gym_logs', prefix:'g', fieldCol:'workout_type', numCol:'duration_min', numLabel:'min', titleFallback:'Workout', emptyMsg:'No workouts logged yet. Even a short session counts.' },
+  { key:'study', table:'study_logs', prefix:'s', fieldCol:'subject', numCol:'minutes', numLabel:'min', titleFallback:'Study', emptyMsg:'No study sessions yet. Start with just one.' },
+  { key:'work', table:'work_logs', prefix:'w', fieldCol:'project', numCol:'minutes', numLabel:'min', titleFallback:'Work', emptyMsg:'Nothing logged yet. Put in the first brick.' },
 ];
 const INTENSITIES = ['deep','medium','shallow'];
 
 // Trackers that share the "date + optional title + freeform content" shape.
 const CONTENT_TRACKERS = [
-  { key:'journal', table:'journal_entries', prefix:'j', hasTitle:true, titleFallback:'(untitled)', dashboard:true },
-  { key:'gratitude', table:'gratitude_entries', prefix:'gr', hasTitle:false, titleFallback:'Gratitude', dashboard:true },
+  { key:'journal', table:'journal_entries', prefix:'j', hasTitle:true, titleFallback:'(untitled)', dashboard:true, emptyMsg:'Nothing written yet. Start with a sentence.' },
+  { key:'gratitude', table:'gratitude_entries', prefix:'gr', hasTitle:false, titleFallback:'Gratitude', dashboard:true, emptyMsg:"Nothing here yet — what are you grateful for today?" },
 ];
 
 // Tabs a user can turn on/off via onboarding or Settings. Dashboard and
@@ -190,8 +190,8 @@ async function deleteRow(table,id){
   loaded.delete(TABLE_KEY[table]);
   renderAll();
 }
-function listHtml(rows, table, renderItem){
-  if(rows.length===0) return '<div class="empty">No entries yet.</div>';
+function listHtml(rows, table, renderItem, emptyMsg='No entries yet.'){
+  if(rows.length===0) return `<div class="empty">${emptyMsg}</div>`;
   return rows.map(e => `
     <div class="entry">
       ${renderItem(e)}
@@ -331,7 +331,7 @@ function renderReading(){
     ${e.learning?`<div class="entry-note">${esc(e.learning)}</div>`:''}
     ${cache.words.filter(w=>w.reading_entry_id===e.id).map(w=>`<span class="tag">${esc(w.word)}</span>`).join('')}
     ${renderCustomFields(e.custom_fields)}
-  `);
+  `, `No reading logged yet. Pick something up and jot down what you learn.`);
   bindDeletes(el);
 }
 
@@ -396,7 +396,7 @@ function renderSimpleTracker(cfg){
     <span class="badge badge-${esc(e.intensity||'medium')}">${esc(e.intensity||'medium')}</span>
     ${e.notes?`<div class="entry-note">${esc(e.notes)}</div>`:''}
     ${renderCustomFields(e.custom_fields)}
-  `);
+  `, cfg.emptyMsg);
   bindDeletes(el);
 }
 SIMPLE_TRACKERS.forEach(wireSimpleTracker);
@@ -441,7 +441,7 @@ function renderContentTracker(cfg){
     <div class="entry-head">${cfg.hasTitle ? `<span class="entry-title">${esc(e.title)||cfg.titleFallback}</span>` : '<span></span>'}<span>${esc(e.date)}</span></div>
     <div class="entry-note">${esc(e.content)}</div>
     ${renderCustomFields(e.custom_fields)}
-  `);
+  `, cfg.emptyMsg);
   bindDeletes(el);
 }
 CONTENT_TRACKERS.forEach(wireContentTracker);
@@ -487,7 +487,7 @@ function renderFinance(){
     <div class="entry-head"><span class="entry-title">${esc(e.category)||(e.type==='income'?'Income':'Expense')}</span><span>${esc(e.date)} &middot; ${e.type==='income'?'+':'-'}${esc(e.amount)||0}</span></div>
     ${e.notes?`<div class="entry-note">${esc(e.notes)}</div>`:''}
     ${renderCustomFields(e.custom_fields)}
-  `);
+  `, 'No transactions yet.');
   bindDeletes(el);
 }
 
@@ -573,7 +573,7 @@ function renderVocab(filter=''){
     (w.word||'').toLowerCase().includes(filter.toLowerCase()) || (w.meaning||'').toLowerCase().includes(filter.toLowerCase())
   );
   const el = document.getElementById('vocab-list');
-  if(words.length===0){ el.innerHTML = '<div class="empty">No words yet.</div>'; return; }
+  if(words.length===0){ el.innerHTML = '<div class="empty">No words logged yet. They\'ll collect here as you read.</div>'; return; }
   el.innerHTML = words.map(w => `
     <div class="entry"><div class="entry-head"><span class="entry-title">${esc(w.word)}</span><span>${esc(w.date)}</span></div>
     <div class="entry-note">${esc(w.meaning)}</div></div>`).join('');
