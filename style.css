@@ -84,6 +84,11 @@ canvas{max-height:280px;}
 .toprow{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
 .toprow strong{font-size:1.02rem;font-weight:800;letter-spacing:-.01em;}
 .insight{font-size:.85rem;font-weight:600;color:var(--accent);margin:-6px 0 14px;}
+
+.toggle-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--border);}
+.toggle-row:last-child{border-bottom:none;}
+.toggle-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex:none;}
+.toggle-row label{margin:0;font-size:.92rem;font-weight:600;text-transform:none;letter-spacing:0;color:var(--text);cursor:pointer;}
 .search{margin-bottom:12px;}
 .footer-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;}
 .flash{position:fixed;top:18px;left:50%;transform:translateX(-50%);display:none;z-index:50;

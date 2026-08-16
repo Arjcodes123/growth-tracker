@@ -50,6 +50,19 @@
     </div>
   </div>
 
+  <!-- ONBOARDING SCREEN -->
+  <div id="screen-onboarding" class="center-screen" style="display:none; max-width:480px;">
+    <span class="mark" style="width:44px;height:44px;border-radius:12px;margin-bottom:18px;display:inline-flex;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><g fill="#fbf6e9"><rect x="4" y="4" width="15" height="4.5"/><rect x="4" y="4" width="4.5" height="16"/><rect x="4" y="15.5" width="15" height="4.5"/><rect x="14" y="11.5" width="5" height="4.5"/></g></svg>
+    </span>
+    <h1>Welcome to Groundwork</h1>
+    <p class="sub">Pick what you want to track. You can change this anytime in Settings.</p>
+    <div class="card" style="text-align:left;">
+      <div id="onboard-list"></div>
+      <div class="footer-actions"><button class="btn" id="onboard-continue">Start tracking</button></div>
+    </div>
+  </div>
+
   <!-- APP -->
   <div id="app" style="display:none;">
     <div class="tabs">
@@ -250,6 +263,12 @@
     </div>
 
     <div class="panel" id="panel-settings">
+      <div class="card">
+        <div class="toprow"><strong>Customize your tabs</strong></div>
+        <p class="sub" style="margin:0 0 10px;">Turn off what you don't use. Dashboard and Settings always stay on.</p>
+        <div id="settings-tabs-list"></div>
+        <div class="footer-actions"><button class="btn" id="settings-tabs-save">Save</button></div>
+      </div>
       <div class="card">
         <button class="btn secondary" id="signout-btn">Sign out</button>
       </div>

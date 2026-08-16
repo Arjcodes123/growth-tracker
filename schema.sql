@@ -101,6 +101,13 @@ create table receivables (
   created_at timestamptz default now()
 );
 
+create table user_settings (
+  user_id uuid primary key references auth.users not null default auth.uid(),
+  enabled_tabs jsonb not null default '["reading","gym","study","work","journal","gratitude","finance","vocab"]',
+  onboarded boolean not null default false,
+  updated_at timestamptz default now()
+);
+
 create table todos (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users not null default auth.uid(),
@@ -128,6 +135,7 @@ alter table journal_entries enable row level security;
 alter table gratitude_entries enable row level security;
 alter table finance_entries enable row level security;
 alter table receivables enable row level security;
+alter table user_settings enable row level security;
 alter table todos enable row level security;
 alter table todo_checks enable row level security;
 
@@ -140,6 +148,7 @@ create policy "own rows" on journal_entries for all using (auth.uid() = user_id)
 create policy "own rows" on gratitude_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on finance_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on receivables for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own rows" on user_settings for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on todos for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on todo_checks for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
@@ -151,5 +160,5 @@ create policy "own rows" on todo_checks for all using (auth.uid() = user_id) wit
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on
   reading_entries, words, gym_logs, study_logs, work_logs, journal_entries,
-  gratitude_entries, finance_entries, receivables, todos, todo_checks
+  gratitude_entries, finance_entries, receivables, user_settings, todos, todo_checks
 to authenticated;

@@ -23,6 +23,11 @@ const CONTENT_TRACKERS = [
   { key:'gratitude', table:'gratitude_entries', prefix:'gr', hasTitle:false, titleFallback:'Gratitude', dashboard:true },
 ];
 
+// Tabs a user can turn on/off via onboarding or Settings. Dashboard and
+// Settings themselves aren't in this list -- they're always on.
+const TAB_LABELS = { reading:'Reading', gym:'Gym', study:'Study', work:'Work', journal:'Journal', gratitude:'Gratitude', finance:'Finance', vocab:'Vocabulary' };
+const OPTIONAL_TABS = Object.keys(TAB_LABELS);
+
 function esc(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -61,16 +66,89 @@ sb.auth.onAuthStateChange((event, session)=>{
   if(event === 'SIGNED_OUT'){ user = null; }
 });
 
-function onLoggedIn(){
+// ---- onboarding & tab customization ----
+let userSettings = null; // { enabled_tabs: string[], onboarded: bool }
+
+async function fetchUserSettings(){
+  const {data,error} = await sb.from('user_settings').select('*').eq('user_id', user.id).maybeSingle();
+  if(error){ flash(error.message, true); return null; }
+  return data;
+}
+async function saveUserSettings(enabledTabs, onboarded){
+  const {error} = await sb.from('user_settings')
+    .upsert({user_id:user.id, enabled_tabs:enabledTabs, onboarded, updated_at:new Date().toISOString()}, {onConflict:'user_id'});
+  if(error){ flash(error.message, true); return false; }
+  return true;
+}
+function toggleListHtml(idPrefix, selectedSet){
+  return OPTIONAL_TABS.map(key => `
+    <div class="toggle-row">
+      <input type="checkbox" id="${idPrefix}-${key}" data-tab="${key}" ${selectedSet.has(key)?'checked':''}>
+      <label for="${idPrefix}-${key}">${TAB_LABELS[key]}</label>
+    </div>`).join('');
+}
+// Hides/shows the optional tab buttons per the user's chosen set. If the
+// currently active tab just got hidden, falls back to the dashboard so the
+// user never lands on a panel they can't navigate away from via the bar.
+function applyTabVisibility(enabledTabs){
+  const enabled = new Set(enabledTabs);
+  document.querySelectorAll('.tab').forEach(t=>{
+    if(OPTIONAL_TABS.includes(t.dataset.tab)) t.style.display = enabled.has(t.dataset.tab) ? '' : 'none';
+  });
+  const activeTab = document.querySelector('.tab.active');
+  if(activeTab && activeTab.style.display === 'none'){
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    document.querySelector('.tab[data-tab="dashboard"]').classList.add('active');
+    document.getElementById('panel-dashboard').classList.add('active');
+  }
+}
+function renderSettingsToggles(){
+  const el = document.getElementById('settings-tabs-list');
+  if(!el || !userSettings) return;
+  el.innerHTML = toggleListHtml('settings', new Set(userSettings.enabled_tabs));
+}
+document.getElementById('settings-tabs-save').addEventListener('click', async ()=>{
+  const selected = [...document.querySelectorAll('#settings-tabs-list input:checked')].map(cb=>cb.dataset.tab);
+  const ok = await saveUserSettings(selected, true);
+  if(!ok) return;
+  userSettings.enabled_tabs = selected;
+  applyTabVisibility(selected);
+  flash('Saved.');
+});
+document.getElementById('onboard-continue').addEventListener('click', async ()=>{
+  const selected = [...document.querySelectorAll('#onboard-list input:checked')].map(cb=>cb.dataset.tab);
+  const ok = await saveUserSettings(selected, true);
+  if(!ok) return;
+  userSettings = { enabled_tabs: selected, onboarded: true };
+  enterApp();
+});
+
+function enterApp(){
+  applyTabVisibility(userSettings.enabled_tabs);
+  show('screen-onboarding','none');
+  document.getElementById('app').style.display='block';
+  ['r-date','g-date','s-date','w-date','j-date','gr-date','f-date','rc-date'].forEach(id=>{ document.getElementById(id).value = todayLocal(); });
+  if(document.getElementById('r-words').children.length === 0) addWordRow();
+  renderAll();
+}
+
+async function onLoggedIn(){
   history.replaceState(null, '', window.location.pathname);
   show('screen-auth','none');
   show('topbar','flex');
   document.getElementById('whoami').textContent = user.email;
   document.getElementById('subline').style.display='none';
-  document.getElementById('app').style.display='block';
-  ['r-date','g-date','s-date','w-date','j-date','gr-date','f-date','rc-date'].forEach(id=>{ document.getElementById(id).value = todayLocal(); });
-  if(document.getElementById('r-words').children.length === 0) addWordRow();
-  renderAll();
+
+  const settings = await fetchUserSettings();
+  if(!settings || !settings.onboarded){
+    userSettings = { enabled_tabs: settings?.enabled_tabs || OPTIONAL_TABS.slice(), onboarded:false };
+    document.getElementById('onboard-list').innerHTML = toggleListHtml('onboard', new Set(userSettings.enabled_tabs));
+    show('screen-onboarding','block');
+    return;
+  }
+  userSettings = settings;
+  enterApp();
 }
 
 // ---- tabs ----
@@ -650,6 +728,7 @@ async function renderAll(){
   if(activeTab==='finance'){ renderFinance(); renderReceivables(); }
   if(activeTab==='vocab') renderVocab(document.getElementById('vocab-search').value);
   if(activeTab==='dashboard'){ renderTodoBoard(); renderDashboard(); }
+  if(activeTab==='settings') renderSettingsToggles();
 }
 
 // ---- dashboard ----
