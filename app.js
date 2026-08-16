@@ -68,7 +68,7 @@ function onLoggedIn(){
   document.getElementById('whoami').textContent = user.email;
   document.getElementById('subline').style.display='none';
   document.getElementById('app').style.display='block';
-  ['r-date','g-date','s-date','w-date','j-date','gr-date','f-date'].forEach(id=>{ document.getElementById(id).value = todayLocal(); });
+  ['r-date','g-date','s-date','w-date','j-date','gr-date','f-date','rc-date'].forEach(id=>{ document.getElementById(id).value = todayLocal(); });
   if(document.getElementById('r-words').children.length === 0) addWordRow();
   renderAll();
 }
@@ -90,7 +90,7 @@ document.querySelectorAll('.tab').forEach(t=>{
 const TABLE_KEY = {
   reading_entries:'reading', words:'words', gym_logs:'gym', study_logs:'study', work_logs:'work',
   journal_entries:'journal', gratitude_entries:'gratitude', finance_entries:'finance',
-  todos:'todos'
+  receivables:'receivables', todos:'todos'
 };
 const ROW_LIMIT = 500; // caps payload size regardless of how much history a user builds up
 
@@ -307,6 +307,67 @@ function renderFinance(){
   bindDeletes(el);
 }
 
+// ---- receivables (owed to you: friend debts, unpaid freelance work) ----
+document.getElementById('rc-category').querySelectorAll('.pill').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.getElementById('rc-category').querySelectorAll('.pill').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+document.getElementById('rc-save').addEventListener('click', async ()=>{
+  const date = document.getElementById('rc-date').value;
+  const from_name = document.getElementById('rc-from').value.trim();
+  const amount = parseFloat(document.getElementById('rc-amount').value)||0;
+  const category = document.getElementById('rc-category').querySelector('.pill.active')?.dataset.value || 'personal';
+  const notes = document.getElementById('rc-notes').value.trim();
+  if(!date || !from_name){ flash('Pick a date and who owes you.', true); return; }
+  const r = await insertRow('receivables', {date, from_name, amount, category, notes, status:'pending'});
+  if(!r) return;
+  flash('Saved.');
+  document.getElementById('rc-from').value=''; document.getElementById('rc-amount').value='';
+  document.getElementById('rc-notes').value='';
+  renderAll();
+});
+function daysAgo(d){
+  return Math.floor((new Date(todayLocal()+'T00:00:00') - new Date(d+'T00:00:00')) / 86400000);
+}
+async function setReceivableStatus(id, status){
+  const {error} = await sb.from('receivables').update({status}).eq('id', id);
+  if(error){ flash(error.message, true); return; }
+  loaded.delete('receivables');
+  renderAll();
+}
+function renderReceivables(){
+  const el = document.getElementById('rc-list');
+  const rows = [...cache.receivables].sort((a,b)=>{
+    if((a.status==='pending') !== (b.status==='pending')) return a.status==='pending' ? -1 : 1;
+    return a.date.localeCompare(b.date);
+  });
+  if(rows.length===0){ el.innerHTML = '<div class="empty">Nobody owes you anything on record.</div>'; return; }
+  el.innerHTML = rows.map(e=>{
+    const days = daysAgo(e.date);
+    const agingColor = e.status!=='pending' ? null : days>30 ? 'var(--danger)' : days>14 ? 'var(--terracotta)' : 'var(--positive)';
+    const statusLabel = e.status==='paid' ? 'Paid' : e.status==='written_off' ? 'Written off' : `${days} day${days===1?'':'s'} outstanding`;
+    return `
+    <div class="entry">
+      <div class="entry-head">
+        <span class="entry-title">${esc(e.from_name)}</span>
+        <span>${esc(e.date)} &middot; ${e.category==='freelance'?'Freelance':'Personal'} &middot; ${esc(e.amount)||0}</span>
+      </div>
+      <div class="entry-note"${agingColor?` style="color:${agingColor};font-weight:600;"`:''}>${statusLabel}</div>
+      ${e.notes?`<div class="entry-note">${esc(e.notes)}</div>`:''}
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+        ${e.status==='pending' ? `<button class="btn secondary small rc-paid" data-id="${e.id}">Mark paid</button>
+        <button class="btn secondary small rc-writeoff" data-id="${e.id}">Write off</button>` : ''}
+        <button class="btn secondary small del" data-table="receivables" data-id="${e.id}">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.rc-paid').forEach(b=>b.addEventListener('click', ()=>setReceivableStatus(b.dataset.id,'paid')));
+  el.querySelectorAll('.rc-writeoff').forEach(b=>b.addEventListener('click', ()=>setReceivableStatus(b.dataset.id,'written_off')));
+  bindDeletes(el);
+}
+
 // ---- vocab ----
 document.getElementById('vocab-search').addEventListener('input', e=>renderVocab(e.target.value));
 function renderVocab(filter=''){
@@ -432,7 +493,7 @@ function renderTodoBoard(){
 }
 
 // ---- render orchestration ----
-let cache = { reading:[], gym:[], study:[], work:[], journal:[], gratitude:[], finance:[], words:[], todos:[], todoChecks:[] };
+let cache = { reading:[], gym:[], study:[], work:[], journal:[], gratitude:[], finance:[], receivables:[], words:[], todos:[], todoChecks:[] };
 // Tracks which cache keys already reflect the server, so switching tabs back
 // and forth doesn't refetch data that hasn't changed. insertRow/deleteRow
 // clear the relevant key so the next render pulls fresh data for it.
@@ -457,6 +518,7 @@ async function renderAll(){
     if(activeTab===cfg.key || (cfg.dashboard && activeTab==='dashboard')) await ensureLoaded(cfg.key, cfg.table);
   }
   if(activeTab==='finance' || activeTab==='dashboard') await ensureLoaded('finance', 'finance_entries');
+  if(activeTab==='finance' || activeTab==='dashboard') await ensureLoaded('receivables', 'receivables');
   if(activeTab==='dashboard'){
     await ensureLoaded('todos', 'todos', fetchTodos);
     await ensureLoaded('todoChecks', 'todo_checks', fetchTodoChecks);
@@ -465,7 +527,7 @@ async function renderAll(){
   if(activeTab==='reading') renderReading();
   for(const cfg of SIMPLE_TRACKERS){ if(activeTab===cfg.key) renderSimpleTracker(cfg); }
   for(const cfg of CONTENT_TRACKERS){ if(activeTab===cfg.key) renderContentTracker(cfg); }
-  if(activeTab==='finance') renderFinance();
+  if(activeTab==='finance'){ renderFinance(); renderReceivables(); }
   if(activeTab==='vocab') renderVocab(document.getElementById('vocab-search').value);
   if(activeTab==='dashboard'){ renderTodoBoard(); renderDashboard(); }
 }
@@ -552,6 +614,9 @@ function renderDashboard(){
   const netBalance = cache.finance
     .filter(e=>isThisMonth(e.date))
     .reduce((s,e)=>s+(e.type==='income'?1:-1)*(Number(e.amount)||0),0);
+  const owedToYou = cache.receivables
+    .filter(e=>e.status==='pending')
+    .reduce((s,e)=>s+(Number(e.amount)||0),0);
 
   const activity = activityByDate();
   let streak=0; let d=new Date();
@@ -567,6 +632,7 @@ function renderDashboard(){
     <div class="stat"><div class="num">${wordsCount}</div><div class="lbl">Words learned</div></div>
     <div class="stat"><div class="num">${gratitudeCount}</div><div class="lbl">Gratitude entries</div></div>
     <div class="stat"><div class="num" style="color:${netBalance<0?'var(--danger)':'var(--positive)'}">${netBalance}</div><div class="lbl">Net this month</div></div>
+    <div class="stat"><div class="num"${owedToYou>0?' style="color:var(--terracotta)"':''}>${owedToYou}</div><div class="lbl">Owed to you</div></div>
     <div class="stat"><div class="num">${streak}</div><div class="lbl">Day streak</div></div>
   `;
 

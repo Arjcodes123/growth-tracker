@@ -212,6 +212,24 @@
         <div class="footer-actions"><button class="btn" id="f-save">Save entry</button></div>
       </div>
       <div class="card" id="f-list"></div>
+
+      <div class="card">
+        <div class="toprow"><strong>Owed to you</strong></div>
+        <div class="row">
+          <div><label>Date</label><input type="date" id="rc-date"></div>
+          <div><label>From</label><input type="text" id="rc-from" placeholder="Friend or client name"></div>
+          <div><label>Amount</label><input type="number" id="rc-amount"></div>
+        </div>
+        <label>Type</label>
+        <div class="pill-group" id="rc-category">
+          <button type="button" class="pill active" data-value="personal">Personal debt</button>
+          <button type="button" class="pill" data-value="freelance">Freelance payment</button>
+        </div>
+        <label>Notes</label>
+        <textarea id="rc-notes" placeholder="What for, when they said they'd pay, etc."></textarea>
+        <div class="footer-actions"><button class="btn" id="rc-save">Add</button></div>
+      </div>
+      <div class="card" id="rc-list"></div>
     </div>
 
     <div class="panel" id="panel-vocab">
