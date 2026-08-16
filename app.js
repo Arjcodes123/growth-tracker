@@ -140,6 +140,10 @@ async function onLoggedIn(){
   document.getElementById('whoami').textContent = user.email;
   document.getElementById('subline').style.display='none';
 
+  // Fire-and-forget: lets the admin dashboard show signup/active counts
+  // without ever touching what anyone actually tracks.
+  sb.from('profiles').upsert({id:user.id, email:user.email, last_active_at:new Date().toISOString()}, {onConflict:'id'});
+
   const settings = await fetchUserSettings();
   if(!settings || !settings.onboarded){
     userSettings = { enabled_tabs: settings?.enabled_tabs || OPTIONAL_TABS.slice(), onboarded:false };

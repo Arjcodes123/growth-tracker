@@ -101,6 +101,17 @@ create table receivables (
   created_at timestamptz default now()
 );
 
+-- Minimal, privacy-scoped record used only for the owner's admin dashboard
+-- (signup counts, daily/weekly active users). Deliberately holds nothing
+-- about what anyone actually tracks -- no reading/gym/journal/finance rows
+-- are ever readable outside the owning user, admin included.
+create table profiles (
+  id uuid primary key references auth.users not null,
+  email text not null,
+  created_at timestamptz not null default now(),
+  last_active_at timestamptz not null default now()
+);
+
 create table user_settings (
   user_id uuid primary key references auth.users not null default auth.uid(),
   enabled_tabs jsonb not null default '["reading","gym","study","work","journal","gratitude","finance","vocab"]',
@@ -126,6 +137,7 @@ create table todo_checks (
   unique (todo_id, date)
 );
 
+alter table profiles enable row level security;
 alter table reading_entries enable row level security;
 alter table words enable row level security;
 alter table gym_logs enable row level security;
@@ -138,6 +150,14 @@ alter table receivables enable row level security;
 alter table user_settings enable row level security;
 alter table todos enable row level security;
 alter table todo_checks enable row level security;
+
+-- Every user can see and update only their own profile row. The second
+-- policy grants the site owner (by email, checked from the JWT) read access
+-- to every row, for the admin dashboard's signup/DAU counts -- nothing else.
+create policy "own profile" on profiles for select using (auth.uid() = id);
+create policy "own profile update" on profiles for update using (auth.uid() = id) with check (auth.uid() = id);
+create policy "own profile insert" on profiles for insert with check (auth.uid() = id);
+create policy "admin reads all profiles" on profiles for select using (auth.jwt() ->> 'email' = 'abdulrehmanjavaid16@gmail.com');
 
 create policy "own rows" on reading_entries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on words for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -162,3 +182,24 @@ grant select, insert, update, delete on
   reading_entries, words, gym_logs, study_logs, work_logs, journal_entries,
   gratitude_entries, finance_entries, receivables, user_settings, todos, todo_checks
 to authenticated;
+grant select, insert, update on profiles to authenticated;
+
+-- Auto-create a profile row the moment someone signs up, so signup counts
+-- are accurate from the first session onward without relying on the client.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (id, email)
+  values (new.id, new.email)
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();

@@ -1,5 +1,7 @@
 User-agent: *
 Disallow: /app
 Disallow: /app.html
+Disallow: /admin
+Disallow: /admin.html
 
 Sitemap: https://groundworklog.com/sitemap.xml
