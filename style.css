@@ -83,6 +83,7 @@ canvas{max-height:280px;}
 .empty{color:var(--muted);font-size:.9rem;text-align:center;padding:28px 0;}
 .toprow{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
 .toprow strong{font-size:1.02rem;font-weight:800;letter-spacing:-.01em;}
+.insight{font-size:.85rem;font-weight:600;color:var(--accent);margin:-6px 0 14px;}
 .search{margin-bottom:12px;}
 .footer-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;}
 .flash{position:fixed;top:18px;left:50%;transform:translateX(-50%);display:none;z-index:50;

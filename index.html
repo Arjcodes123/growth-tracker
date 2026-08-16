@@ -67,6 +67,8 @@
 
     <div class="panel active" id="panel-dashboard">
       <div class="todo-board" id="todo-board"></div>
+      <div class="toprow"><strong>Ground Level</strong></div>
+      <div class="insight" id="dash-insight"></div>
       <div class="stats" id="stats"></div>
       <div class="card"><div class="toprow"><strong>Activity, last 13 weeks</strong></div><div id="heatmap"></div></div>
       <div class="card"><div class="toprow"><strong>Minutes per day, last 21 days</strong></div><canvas id="chart-time"></canvas></div>
@@ -74,6 +76,7 @@
     </div>
 
     <div class="panel" id="panel-reading">
+      <div class="card" id="r-stats"></div>
       <div class="card">
         <div class="row">
           <div><label>Date</label><input type="date" id="r-date"></div>
@@ -94,6 +97,7 @@
     </div>
 
     <div class="panel" id="panel-gym">
+      <div class="card" id="g-stats"></div>
       <div class="card">
         <div class="row">
           <div><label>Date</label><input type="date" id="g-date"></div>
@@ -117,6 +121,7 @@
     </div>
 
     <div class="panel" id="panel-study">
+      <div class="card" id="s-stats"></div>
       <div class="card">
         <div class="row">
           <div><label>Date</label><input type="date" id="s-date"></div>
@@ -140,6 +145,7 @@
     </div>
 
     <div class="panel" id="panel-work">
+      <div class="card" id="w-stats"></div>
       <div class="card">
         <div class="row">
           <div><label>Date</label><input type="date" id="w-date"></div>
@@ -163,6 +169,7 @@
     </div>
 
     <div class="panel" id="panel-journal">
+      <div class="card" id="j-stats"></div>
       <div class="card">
         <div class="row">
           <div><label>Date</label><input type="date" id="j-date"></div>
@@ -179,6 +186,7 @@
     </div>
 
     <div class="panel" id="panel-gratitude">
+      <div class="card" id="gr-stats"></div>
       <div class="card">
         <label>Date</label><input type="date" id="gr-date">
         <label>What are you grateful for today?</label>
@@ -192,6 +200,7 @@
     </div>
 
     <div class="panel" id="panel-finance">
+      <div class="card" id="f-stats"></div>
       <div class="card">
         <div class="row">
           <div><label>Date</label><input type="date" id="f-date"></div>
@@ -233,6 +242,7 @@
     </div>
 
     <div class="panel" id="panel-vocab">
+      <div class="card" id="vocab-stats"></div>
       <div class="card">
         <input type="text" class="search" id="vocab-search" placeholder="Search words">
         <div id="vocab-list"></div>

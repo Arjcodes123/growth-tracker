@@ -154,6 +154,43 @@ function renderCustomFields(obj){
   return Object.entries(obj).map(([k,v])=>`<span class="tag">${esc(k)}: ${esc(v)}</span>`).join('');
 }
 
+// ---- per-tab insights ("Ground Level") ----
+// Shared by every tracker's stats card: sum/count a field over a date range,
+// then compare this-week to the prior week for a one-line, data-driven nudge.
+function rangeSum(rows, field, fromStr, toStrExclusive){
+  return rows.filter(e=>e.date>=fromStr && e.date<toStrExclusive).reduce((s,e)=>s+(Number(e[field])||0),0);
+}
+function rangeCount(rows, fromStr, toStrExclusive){
+  return rows.filter(e=>e.date>=fromStr && e.date<toStrExclusive).length;
+}
+// Two adjacent 7-day windows ending today, with no gap or overlap between them.
+function last7Bounds(){
+  const today = new Date();
+  const startThis = new Date(today); startThis.setDate(startThis.getDate()-6);
+  const startLast = new Date(today); startLast.setDate(startLast.getDate()-13);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate()+1);
+  return { thisFrom: dateStr(startThis), thisTo: dateStr(tomorrow), lastFrom: dateStr(startLast), lastTo: dateStr(startThis) };
+}
+function trendLine(current, previous, noun){
+  if(current===0 && previous===0) return `Nothing logged yet this week — lay the first brick.`;
+  if(previous===0) return `${current} ${noun} this week. Fresh start, keep it going.`;
+  const pct = Math.round(((current-previous)/previous)*100);
+  if(pct>=20) return `Up ${pct}% from last week. That's real momentum.`;
+  if(pct>0) return `Up ${pct}% from last week — steady progress.`;
+  if(pct===0) return `Matching last week exactly. Steady as bedrock.`;
+  if(pct>-20) return `Down ${Math.abs(pct)}% from last week — still plenty of week left.`;
+  return `Down ${Math.abs(pct)}% from last week. Time to get back to it.`;
+}
+function spendTrendLine(current, previous){
+  if(current===0 && previous===0) return `No spending logged this week.`;
+  if(previous===0) return `${current} spent this week.`;
+  const pct = Math.round(((current-previous)/previous)*100);
+  if(pct>20) return `Spending's up ${pct}% from last week — worth a glance.`;
+  if(pct>0) return `Spending's up ${pct}% from last week.`;
+  if(pct===0) return `Spending's flat versus last week.`;
+  return `Spending's down ${Math.abs(pct)}% from last week — nice.`;
+}
+
 // ---- reading ----
 function addWordRow(word='',meaning=''){
   const div = document.createElement('div');
@@ -192,7 +229,24 @@ document.getElementById('r-save').addEventListener('click', async ()=>{
   renderAll();
 });
 
+function renderReadingStats(){
+  const el = document.getElementById('r-stats'); if(!el) return;
+  const total = cache.reading.reduce((s,e)=>s+(Number(e.minutes)||0),0);
+  const {thisFrom,thisTo,lastFrom,lastTo} = last7Bounds();
+  const thisWk = rangeSum(cache.reading,'minutes',thisFrom,thisTo);
+  const lastWk = rangeSum(cache.reading,'minutes',lastFrom,lastTo);
+  el.innerHTML = `
+    <div class="toprow"><strong>Ground Level</strong></div>
+    <div class="insight">${trendLine(thisWk,lastWk,'minutes')}</div>
+    <div class="stats">
+      <div class="stat"><div class="num">${total}</div><div class="lbl">Total minutes</div></div>
+      <div class="stat"><div class="num">${cache.reading.length}</div><div class="lbl">Entries</div></div>
+      <div class="stat"><div class="num">${cache.words.length}</div><div class="lbl">Words learned</div></div>
+      <div class="stat"><div class="num">${thisWk}</div><div class="lbl">This week</div></div>
+    </div>`;
+}
 function renderReading(){
+  renderReadingStats();
   const el = document.getElementById('r-list');
   el.innerHTML = listHtml(cache.reading, 'reading_entries', e=>`
     <div class="entry-head"><span class="entry-title">${esc(e.book)||'(no book)'}</span><span>${esc(e.date)} &middot; ${esc(e.minutes)||0} min</span></div>
@@ -238,7 +292,26 @@ function wireSimpleTracker(cfg){
     renderAll();
   });
 }
+function renderTrackerStats(cfg){
+  const el = document.getElementById(cfg.prefix+'-stats'); if(!el) return;
+  const rows = cache[cfg.key];
+  const total = rows.reduce((s,e)=>s+(Number(e[cfg.numCol])||0),0);
+  const deepCount = rows.filter(e=>e.intensity==='deep').length;
+  const {thisFrom,thisTo,lastFrom,lastTo} = last7Bounds();
+  const thisWk = rangeSum(rows,cfg.numCol,thisFrom,thisTo);
+  const lastWk = rangeSum(rows,cfg.numCol,lastFrom,lastTo);
+  el.innerHTML = `
+    <div class="toprow"><strong>Ground Level</strong></div>
+    <div class="insight">${trendLine(thisWk,lastWk,cfg.numLabel)}</div>
+    <div class="stats">
+      <div class="stat"><div class="num">${total}</div><div class="lbl">Total ${cfg.numLabel}</div></div>
+      <div class="stat"><div class="num">${rows.length}</div><div class="lbl">Sessions</div></div>
+      <div class="stat"><div class="num">${deepCount}</div><div class="lbl">Deep sessions</div></div>
+      <div class="stat"><div class="num">${thisWk}</div><div class="lbl">This week</div></div>
+    </div>`;
+}
 function renderSimpleTracker(cfg){
+  renderTrackerStats(cfg);
   const el = document.getElementById(cfg.prefix+'-list');
   el.innerHTML = listHtml(cache[cfg.key], cfg.table, e=>`
     <div class="entry-head"><span class="entry-title">${esc(e[cfg.fieldCol])||cfg.titleFallback}</span><span>${esc(e.date)} &middot; ${esc(e[cfg.numCol])||0} ${cfg.numLabel}</span></div>
@@ -269,7 +342,22 @@ function wireContentTracker(cfg){
     renderAll();
   });
 }
+function renderContentStats(cfg){
+  const el = document.getElementById(cfg.prefix+'-stats'); if(!el) return;
+  const rows = cache[cfg.key];
+  const {thisFrom,thisTo,lastFrom,lastTo} = last7Bounds();
+  const thisWk = rangeCount(rows,thisFrom,thisTo);
+  const lastWk = rangeCount(rows,lastFrom,lastTo);
+  el.innerHTML = `
+    <div class="toprow"><strong>Ground Level</strong></div>
+    <div class="insight">${trendLine(thisWk,lastWk,'entries')}</div>
+    <div class="stats">
+      <div class="stat"><div class="num">${rows.length}</div><div class="lbl">Total entries</div></div>
+      <div class="stat"><div class="num">${thisWk}</div><div class="lbl">This week</div></div>
+    </div>`;
+}
 function renderContentTracker(cfg){
+  renderContentStats(cfg);
   const el = document.getElementById(cfg.prefix+'-list');
   el.innerHTML = listHtml(cache[cfg.key], cfg.table, e=>`
     <div class="entry-head">${cfg.hasTitle ? `<span class="entry-title">${esc(e.title)||cfg.titleFallback}</span>` : '<span></span>'}<span>${esc(e.date)}</span></div>
@@ -297,7 +385,25 @@ document.getElementById('f-save').addEventListener('click', async ()=>{
   document.getElementById('f-notes').value=''; document.getElementById('f-fields').innerHTML='';
   renderAll();
 });
+function renderFinanceStats(){
+  const el = document.getElementById('f-stats'); if(!el) return;
+  const netMonth = cache.finance.filter(e=>isThisMonth(e.date)).reduce((s,e)=>s+(e.type==='income'?1:-1)*(Number(e.amount)||0),0);
+  const owed = cache.receivables.filter(e=>e.status==='pending').reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const expenses = cache.finance.filter(e=>e.type==='expense');
+  const {thisFrom,thisTo,lastFrom,lastTo} = last7Bounds();
+  const spendThis = rangeSum(expenses,'amount',thisFrom,thisTo);
+  const spendLast = rangeSum(expenses,'amount',lastFrom,lastTo);
+  el.innerHTML = `
+    <div class="toprow"><strong>Ground Level</strong></div>
+    <div class="insight">${spendTrendLine(spendThis,spendLast)}</div>
+    <div class="stats">
+      <div class="stat"><div class="num" style="color:${netMonth<0?'var(--danger)':'var(--positive)'}">${netMonth}</div><div class="lbl">Net this month</div></div>
+      <div class="stat"><div class="num"${owed>0?' style="color:var(--terracotta)"':''}>${owed}</div><div class="lbl">Owed to you</div></div>
+      <div class="stat"><div class="num">${spendThis}</div><div class="lbl">Spent this week</div></div>
+    </div>`;
+}
 function renderFinance(){
+  renderFinanceStats();
   const el = document.getElementById('f-list');
   el.innerHTML = listHtml(cache.finance, 'finance_entries', e=>`
     <div class="entry-head"><span class="entry-title">${esc(e.category)||(e.type==='income'?'Income':'Expense')}</span><span>${esc(e.date)} &middot; ${e.type==='income'?'+':'-'}${esc(e.amount)||0}</span></div>
@@ -370,7 +476,21 @@ function renderReceivables(){
 
 // ---- vocab ----
 document.getElementById('vocab-search').addEventListener('input', e=>renderVocab(e.target.value));
+function renderVocabStats(){
+  const el = document.getElementById('vocab-stats'); if(!el) return;
+  const {thisFrom,thisTo,lastFrom,lastTo} = last7Bounds();
+  const thisWk = rangeCount(cache.words,thisFrom,thisTo);
+  const lastWk = rangeCount(cache.words,lastFrom,lastTo);
+  el.innerHTML = `
+    <div class="toprow"><strong>Ground Level</strong></div>
+    <div class="insight">${trendLine(thisWk,lastWk,'words')}</div>
+    <div class="stats">
+      <div class="stat"><div class="num">${cache.words.length}</div><div class="lbl">Total words</div></div>
+      <div class="stat"><div class="num">${thisWk}</div><div class="lbl">This week</div></div>
+    </div>`;
+}
 function renderVocab(filter=''){
+  renderVocabStats();
   const words = cache.words.filter(w =>
     (w.word||'').toLowerCase().includes(filter.toLowerCase()) || (w.meaning||'').toLowerCase().includes(filter.toLowerCase())
   );
@@ -599,6 +719,20 @@ function renderHeatmap(activity){
   ).join('')}</div>`;
 }
 
+function renderDashInsight(activity){
+  const el = document.getElementById('dash-insight'); if(!el) return;
+  const {thisFrom,thisTo,lastFrom,lastTo} = last7Bounds();
+  const countActiveDays = (fromStr,toStrExcl) => {
+    let n=0;
+    for(const d of activity.keys()){ if(d>=fromStr && d<toStrExcl) n++; }
+    return n;
+  };
+  const thisWk = countActiveDays(thisFrom,thisTo);
+  const lastWk = countActiveDays(lastFrom,lastTo);
+  if(thisWk===0 && lastWk===0){ el.textContent = `No activity logged yet — lay your first brick today.`; return; }
+  if(thisWk>=6){ el.textContent = `Active ${thisWk} of the last 7 days. That's proper consistency.`; return; }
+  el.textContent = trendLine(thisWk,lastWk,'active days');
+}
 function renderDashboard(){
   const readMin = cache.reading.reduce((s,e)=>s+(Number(e.minutes)||0),0);
   const gymMin = cache.gym.reduce((s,e)=>s+(Number(e.duration_min)||0),0);
@@ -622,6 +756,7 @@ function renderDashboard(){
   let streak=0; let d=new Date();
   while(activity.has(dateStr(d))){ streak++; d.setDate(d.getDate()-1); }
   renderHeatmap(activity);
+  renderDashInsight(activity);
 
   document.getElementById('stats').innerHTML = `
     <div class="stat"><div class="num">${readMin}</div><div class="lbl">Reading min</div></div>
