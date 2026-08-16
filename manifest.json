@@ -1,7 +1,7 @@
 {
-  "name": "Growth Tracker",
-  "short_name": "Growth Tracker",
-  "description": "A private log for reading, training, study, diet, finance and journaling.",
+  "name": "Groundwork",
+  "short_name": "Groundwork",
+  "description": "A private log for reading, training, study, work, finance and journaling.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

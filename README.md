@@ -1,4 +1,4 @@
-# Growth Tracker
+# Groundwork
 
 A single-page habit and journal tracker for reading, gym, study and personal writing, with a dashboard that visualizes streaks and time invested over the last three weeks.
 

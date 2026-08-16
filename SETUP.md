@@ -1,4 +1,4 @@
-# Growth Tracker Setup Checklist
+# Groundwork Setup Checklist
 
 This is the one-time setup for the person hosting the app (you). Visitors never see any of this; they just click "Continue with Google."
 
