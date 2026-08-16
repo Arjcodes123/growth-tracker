@@ -20,7 +20,7 @@ const INTENSITIES = ['deep','medium','shallow'];
 // Trackers that share the "date + optional title + freeform content" shape.
 const CONTENT_TRACKERS = [
   { key:'journal', table:'journal_entries', prefix:'j', hasTitle:true, titleFallback:'(untitled)', dashboard:true, emptyMsg:'Nothing written yet. Start with a sentence.' },
-  { key:'gratitude', table:'gratitude_entries', prefix:'gr', hasTitle:false, titleFallback:'Gratitude', dashboard:true, emptyMsg:"Nothing here yet — what are you grateful for today?" },
+  { key:'gratitude', table:'gratitude_entries', prefix:'gr', hasTitle:false, titleFallback:'Gratitude', dashboard:true, emptyMsg:"Nothing here yet. What are you grateful for today?" },
 ];
 
 // Tabs a user can turn on/off via onboarding or Settings. Dashboard and
@@ -250,23 +250,23 @@ function last7Bounds(){
   return { thisFrom: dateStr(startThis), thisTo: dateStr(tomorrow), lastFrom: dateStr(startLast), lastTo: dateStr(startThis) };
 }
 function trendLine(current, previous, noun){
-  if(current===0 && previous===0) return `Nothing logged yet this week — lay the first brick.`;
+  if(current===0 && previous===0) return `Nothing logged yet this week. Lay the first brick.`;
   if(previous===0) return `${current} ${noun} this week. Fresh start, keep it going.`;
   const pct = Math.round(((current-previous)/previous)*100);
   if(pct>=20) return `Up ${pct}% from last week. That's real momentum.`;
-  if(pct>0) return `Up ${pct}% from last week — steady progress.`;
+  if(pct>0) return `Up ${pct}% from last week. Steady progress.`;
   if(pct===0) return `Matching last week exactly. Steady as bedrock.`;
-  if(pct>-20) return `Down ${Math.abs(pct)}% from last week — still plenty of week left.`;
+  if(pct>-20) return `Down ${Math.abs(pct)}% from last week. Still plenty of week left.`;
   return `Down ${Math.abs(pct)}% from last week. Time to get back to it.`;
 }
 function spendTrendLine(current, previous){
   if(current===0 && previous===0) return `No spending logged this week.`;
   if(previous===0) return `${current} spent this week.`;
   const pct = Math.round(((current-previous)/previous)*100);
-  if(pct>20) return `Spending's up ${pct}% from last week — worth a glance.`;
+  if(pct>20) return `Spending's up ${pct}% from last week. Worth a glance.`;
   if(pct>0) return `Spending's up ${pct}% from last week.`;
   if(pct===0) return `Spending's flat versus last week.`;
-  return `Spending's down ${Math.abs(pct)}% from last week — nice.`;
+  return `Spending's down ${Math.abs(pct)}% from last week. Nice.`;
 }
 
 // ---- reading ----
@@ -808,7 +808,7 @@ function renderDashInsight(activity){
   };
   const thisWk = countActiveDays(thisFrom,thisTo);
   const lastWk = countActiveDays(lastFrom,lastTo);
-  if(thisWk===0 && lastWk===0){ el.textContent = `No activity logged yet — lay your first brick today.`; return; }
+  if(thisWk===0 && lastWk===0){ el.textContent = `No activity logged yet. Lay your first brick today.`; return; }
   if(thisWk>=6){ el.textContent = `Active ${thisWk} of the last 7 days. That's proper consistency.`; return; }
   el.textContent = trendLine(thisWk,lastWk,'active days');
 }
@@ -908,7 +908,7 @@ function updateInstallUI(){
     hint.textContent = 'To install: tap the Share icon in Safari, then "Add to Home Screen."';
     hint.style.display = 'block';
   } else {
-    hint.textContent = "Install isn't available in this browser yet — try Chrome or Edge.";
+    hint.textContent = "Install isn't available in this browser yet. Try Chrome or Edge.";
     hint.style.display = 'block';
   }
 }
