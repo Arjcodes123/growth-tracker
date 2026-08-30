@@ -83,6 +83,39 @@
       <div class="toprow"><strong>Ground Level</strong></div>
       <div class="insight" id="dash-insight"></div>
       <div class="stats" id="stats"></div>
+
+      <div class="card">
+        <div class="toprow"><strong>Analytics</strong></div>
+        <div class="row">
+          <div><label>Metric</label>
+            <select id="an-metric">
+              <option value="reading">Reading minutes</option>
+              <option value="gym">Gym minutes</option>
+              <option value="study">Study minutes</option>
+              <option value="work">Work minutes</option>
+              <option value="deepwork">Deep work minutes</option>
+              <option value="spend">Spend</option>
+              <option value="words">Words learned</option>
+              <option value="gratitude">Gratitude entries</option>
+              <option value="activedays">Active days</option>
+            </select>
+          </div>
+          <div><label>Compare</label>
+            <select id="an-preset">
+              <option value="week">This week vs last week</option>
+              <option value="month">This month vs last month</option>
+              <option value="custom">Custom range</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" id="an-custom-row" style="display:none;">
+          <div><label>From</label><input type="date" id="an-from"></div>
+          <div><label>To</label><input type="date" id="an-to"></div>
+        </div>
+        <div class="insight" id="an-insight"></div>
+        <canvas id="chart-analytics"></canvas>
+      </div>
+
       <div class="card"><div class="toprow"><strong>Activity, last 13 weeks</strong></div><div id="heatmap"></div></div>
       <div class="card"><div class="toprow"><strong>Minutes per day, last 21 days</strong></div><canvas id="chart-time"></canvas></div>
       <div class="card"><div class="toprow"><strong>Cumulative words learned</strong></div><canvas id="chart-words"></canvas></div>
@@ -223,7 +256,20 @@
               <option value="income">Income</option>
             </select>
           </div>
-          <div><label>Category</label><input type="text" id="f-category" placeholder="Food / Rent / Salary"></div>
+          <div><label>Category</label>
+            <select id="f-category-select">
+              <option value="Food">Food</option>
+              <option value="Travel">Travel</option>
+              <option value="Rent">Rent</option>
+              <option value="Bills">Bills</option>
+              <option value="Leisure">Leisure</option>
+              <option value="Investment">Investment</option>
+              <option value="Health">Health</option>
+              <option value="Shopping">Shopping</option>
+              <option value="Other">Other</option>
+            </select>
+            <input type="text" id="f-category-text" placeholder="e.g. Salary, Freelance, Gift" style="display:none;">
+          </div>
           <div><label>Amount</label><input type="number" id="f-amount"></div>
         </div>
         <label>Notes</label>
@@ -234,6 +280,12 @@
         <div class="footer-actions"><button class="btn" id="f-save">Save entry</button></div>
       </div>
       <div class="card" id="f-list"></div>
+
+      <div class="card">
+        <div class="toprow"><strong>Spend by category, this month</strong></div>
+        <div id="category-empty" class="empty" style="display:none;">No expenses logged this month yet.</div>
+        <canvas id="chart-category"></canvas>
+      </div>
 
       <div class="card">
         <div class="toprow"><strong>Owed to you</strong></div>
@@ -271,6 +323,11 @@
       </div>
       <div class="card">
         <button class="btn secondary" id="signout-btn">Sign out</button>
+      </div>
+      <div class="card">
+        <div class="toprow"><strong>Delete your data</strong></div>
+        <p class="sub" style="margin:0 0 10px;">Permanently deletes everything you've tracked here (reading, gym, study, work, journal, gratitude, finance, receivables, vocabulary, to-dos) and deactivates your account. This can't be undone. Your sign-in itself isn't removed &mdash; email <a href="mailto:abdulrehmanjavaid16@gmail.com">abdulrehmanjavaid16@gmail.com</a> if you'd like that closed too.</p>
+        <button class="btn danger" id="delete-data-btn">Delete all my data</button>
       </div>
       <div class="card">
         <button class="btn" id="install-btn" style="display:none;">Install app</button>

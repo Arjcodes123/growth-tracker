@@ -28,6 +28,16 @@ const CONTENT_TRACKERS = [
 const TAB_LABELS = { reading:'Reading', gym:'Gym', study:'Study', work:'Work', journal:'Journal', gratitude:'Gratitude', finance:'Finance', vocab:'Vocabulary' };
 const OPTIONAL_TABS = Object.keys(TAB_LABELS);
 
+// Fixed expense categories (income stays freeform -- see the finance form).
+// Colors are a validated categorical set (see dataviz skill); "Other" and any
+// legacy freeform category from before this list existed get a neutral gray
+// rather than a generated hue.
+const EXPENSE_CATEGORIES = ['Food','Travel','Rent','Bills','Leisure','Investment','Health','Shopping','Other'];
+const CATEGORY_COLORS = {
+  Food:'#2a78d6', Travel:'#eb6834', Rent:'#1baf7a', Bills:'#eda100', Leisure:'#e87ba4',
+  Investment:'#008300', Health:'#4a3aa7', Shopping:'#e34948', Other:'#8a7a5c'
+};
+
 function esc(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -116,6 +126,24 @@ document.getElementById('settings-tabs-save').addEventListener('click', async ()
   applyTabVisibility(selected);
   flash('Saved.');
 });
+// todo_checks isn't listed here -- it cascade-deletes when its parent todos
+// row goes (schema.sql: `todo_id uuid references todos on delete cascade`).
+const DELETE_ON_ACCOUNT_WIPE = [
+  'reading_entries','words','gym_logs','study_logs','work_logs','journal_entries',
+  'gratitude_entries','finance_entries','receivables','todos','user_settings'
+];
+document.getElementById('delete-data-btn').addEventListener('click', async ()=>{
+  if(!confirm('This permanently deletes everything you\'ve tracked and cannot be undone. Continue?')) return;
+  if(!confirm('Final confirmation: delete all your data now?')) return;
+  for(const table of DELETE_ON_ACCOUNT_WIPE){
+    const {error} = await sb.from(table).delete().eq('user_id', user.id);
+    if(error){ flash(error.message, true); return; }
+  }
+  await sb.from('profiles').delete().eq('id', user.id);
+  await sb.auth.signOut();
+  location.reload();
+});
+
 document.getElementById('onboard-continue').addEventListener('click', async ()=>{
   const selected = [...document.querySelectorAll('#onboard-list input:checked')].map(cb=>cb.dataset.tab);
   const ok = await saveUserSettings(selected, true);
@@ -253,24 +281,59 @@ function last7Bounds(){
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate()+1);
   return { thisFrom: dateStr(startThis), thisTo: dateStr(tomorrow), lastFrom: dateStr(startLast), lastTo: dateStr(startThis) };
 }
-function trendLine(current, previous, noun){
-  if(current===0 && previous===0) return `Nothing logged yet this week. Lay the first brick.`;
-  if(previous===0) return `${current} ${noun} this week. Fresh start, keep it going.`;
-  const pct = Math.round(((current-previous)/previous)*100);
-  if(pct>=20) return `Up ${pct}% from last week. That's real momentum.`;
-  if(pct>0) return `Up ${pct}% from last week. Steady progress.`;
-  if(pct===0) return `Matching last week exactly. Steady as bedrock.`;
-  if(pct>-20) return `Down ${Math.abs(pct)}% from last week. Still plenty of week left.`;
-  return `Down ${Math.abs(pct)}% from last week. Time to get back to it.`;
+// Generalized version of last7Bounds() for the Analytics card: any [from,to]
+// range compared against the immediately preceding range of equal length
+// (the same rule "this week vs last week" already uses, just not pinned to
+// 7 days -- so "this month vs last month" and a custom range both fall out
+// of the same logic instead of needing special-cased boundaries).
+function addDaysDate(d, n){ const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+function priorEqualPeriod(fromStr, toStr){
+  const from = new Date(fromStr+'T00:00:00');
+  const to = new Date(toStr+'T00:00:00');
+  const days = Math.round((to-from)/86400000) + 1; // inclusive day count
+  const priorTo = addDaysDate(from, -1);
+  const priorFrom = addDaysDate(priorTo, -(days-1));
+  return { from: dateStr(priorFrom), to: dateStr(priorTo) };
 }
-function spendTrendLine(current, previous){
-  if(current===0 && previous===0) return `No spending logged this week.`;
-  if(previous===0) return `${current} spent this week.`;
+function periodBounds(preset, customFrom, customTo){
+  const today = new Date();
+  let fromStr, toStr;
+  if(preset==='month'){
+    fromStr = dateStr(new Date(today.getFullYear(), today.getMonth(), 1));
+    toStr = todayLocal();
+  } else if(preset==='custom'){
+    fromStr = customFrom; toStr = customTo;
+  } else { // week
+    fromStr = dateStr(addDaysDate(today,-6));
+    toStr = todayLocal();
+  }
+  const prior = priorEqualPeriod(fromStr, toStr);
+  return {
+    thisFrom: fromStr, thisTo: dateStr(addDaysDate(new Date(toStr+'T00:00:00'),1)),
+    lastFrom: prior.from, lastTo: dateStr(addDaysDate(new Date(prior.to+'T00:00:00'),1))
+  };
+}
+// labels defaults to weekly phrasing since every existing caller (the
+// per-tracker "Ground Level" cards) is genuinely week-over-week; the
+// Analytics card is the only caller that overrides it, for month/custom.
+function trendLine(current, previous, noun, labels={cur:'this week', prev:'last week'}){
+  if(current===0 && previous===0) return `Nothing logged yet ${labels.cur}. Lay the first brick.`;
+  if(previous===0) return `${current} ${noun} ${labels.cur}. Fresh start, keep it going.`;
   const pct = Math.round(((current-previous)/previous)*100);
-  if(pct>20) return `Spending's up ${pct}% from last week. Worth a glance.`;
-  if(pct>0) return `Spending's up ${pct}% from last week.`;
-  if(pct===0) return `Spending's flat versus last week.`;
-  return `Spending's down ${Math.abs(pct)}% from last week. Nice.`;
+  if(pct>=20) return `Up ${pct}% from ${labels.prev}. That's real momentum.`;
+  if(pct>0) return `Up ${pct}% from ${labels.prev}. Steady progress.`;
+  if(pct===0) return `Matching ${labels.prev} exactly. Steady as bedrock.`;
+  if(pct>-20) return `Down ${Math.abs(pct)}% from ${labels.prev}. Still plenty of time left.`;
+  return `Down ${Math.abs(pct)}% from ${labels.prev}. Time to get back to it.`;
+}
+function spendTrendLine(current, previous, labels={cur:'this week', prev:'last week'}){
+  if(current===0 && previous===0) return `No spending logged ${labels.cur}.`;
+  if(previous===0) return `${current} spent ${labels.cur}.`;
+  const pct = Math.round(((current-previous)/previous)*100);
+  if(pct>20) return `Spending's up ${pct}% from ${labels.prev}. Worth a glance.`;
+  if(pct>0) return `Spending's up ${pct}% from ${labels.prev}.`;
+  if(pct===0) return `Spending's flat versus ${labels.prev}.`;
+  return `Spending's down ${Math.abs(pct)}% from ${labels.prev}. Nice.`;
 }
 
 // ---- reading ----
@@ -451,11 +514,23 @@ function renderContentTracker(cfg){
 CONTENT_TRACKERS.forEach(wireContentTracker);
 
 // ---- finance ----
+// Expenses pick from a fixed category list (for the spend-by-category chart);
+// income stays freeform since income sources vary too much to bucket usefully.
+function updateFinanceCategoryField(){
+  const isIncome = document.getElementById('f-type').value === 'income';
+  document.getElementById('f-category-select').style.display = isIncome ? 'none' : '';
+  document.getElementById('f-category-text').style.display = isIncome ? '' : 'none';
+}
+document.getElementById('f-type').addEventListener('change', updateFinanceCategoryField);
+updateFinanceCategoryField();
+
 document.getElementById('f-addfield').addEventListener('click', ()=>addCustomFieldRow(document.getElementById('f-fields')));
 document.getElementById('f-save').addEventListener('click', async ()=>{
   const date = document.getElementById('f-date').value;
   const type = document.getElementById('f-type').value;
-  const category = document.getElementById('f-category').value.trim();
+  const category = type === 'income'
+    ? document.getElementById('f-category-text').value.trim()
+    : document.getElementById('f-category-select').value;
   const amount = parseFloat(document.getElementById('f-amount').value)||0;
   const notes = document.getElementById('f-notes').value.trim();
   const custom_fields = collectCustomFields(document.getElementById('f-fields'));
@@ -463,7 +538,7 @@ document.getElementById('f-save').addEventListener('click', async ()=>{
   const r = await insertRow('finance_entries', {date, type, category, amount, notes, custom_fields});
   if(!r) return;
   flash('Saved.');
-  document.getElementById('f-category').value=''; document.getElementById('f-amount').value='';
+  document.getElementById('f-category-text').value=''; document.getElementById('f-amount').value='';
   document.getElementById('f-notes').value=''; document.getElementById('f-fields').innerHTML='';
   renderAll();
 });
@@ -493,6 +568,32 @@ function renderFinance(){
     ${renderCustomFields(e.custom_fields)}
   `, 'No transactions yet.');
   bindDeletes(el);
+  renderFinanceCategoryChart();
+}
+// Spend-by-category, this month. Any row predating the fixed category list
+// (or with unrecognized freeform text) folds into "Other" for this chart only
+// -- the entry list above still shows its original text untouched.
+function renderFinanceCategoryChart(){
+  const canvas = document.getElementById('chart-category'); if(!canvas) return;
+  const empty = document.getElementById('category-empty');
+  const monthExpenses = cache.finance.filter(e=>e.type==='expense' && isThisMonth(e.date));
+  const totals = {};
+  monthExpenses.forEach(e=>{
+    const cat = EXPENSE_CATEGORIES.includes(e.category) ? e.category : 'Other';
+    totals[cat] = (totals[cat]||0) + (Number(e.amount)||0);
+  });
+  const cats = EXPENSE_CATEGORIES.filter(c => totals[c] > 0);
+  if(charts.category){ charts.category.destroy(); charts.category = null; }
+  if(cats.length===0){ canvas.style.display='none'; empty.style.display='block'; return; }
+  canvas.style.display=''; empty.style.display='none';
+  charts.category = new Chart(canvas, {
+    type:'bar',
+    data:{ labels: cats, datasets:[{ data: cats.map(c=>totals[c]), backgroundColor: cats.map(c=>CATEGORY_COLORS[c]), borderRadius:4, maxBarThickness:44 }] },
+    options:{
+      scales:{ x:{ticks:{color:'#6b5c40'}, grid:{display:false}}, y:{beginAtZero:true, ticks:{color:'#6b5c40'}, grid:{color:'#ddccaa'}} },
+      plugins:{ legend:{display:false} }
+    }
+  });
 }
 
 // ---- receivables (owed to you: friend debts, unpaid freelance work) ----
@@ -816,18 +917,107 @@ function renderDashInsight(activity){
   if(thisWk>=6){ el.textContent = `Active ${thisWk} of the last 7 days. That's proper consistency.`; return; }
   el.textContent = trendLine(thisWk,lastWk,'active days');
 }
+// ---- analytics card (week vs week / month vs month / custom range) ----
+function datesBetween(fromStr, toStrInclusive){
+  const arr = []; let d = new Date(fromStr+'T00:00:00'); const end = new Date(toStrInclusive+'T00:00:00');
+  while(d<=end){ arr.push(dateStr(d)); d = addDaysDate(d,1); }
+  return arr;
+}
+const ANALYTICS_METRICS = {
+  reading:   { label:'Reading minutes',  noun:'min' },
+  gym:       { label:'Gym minutes',      noun:'min' },
+  study:     { label:'Study minutes',    noun:'min' },
+  work:      { label:'Work minutes',     noun:'min' },
+  deepwork:  { label:'Deep work minutes',noun:'min' },
+  spend:     { label:'Spend',            noun:null }, // uses spendTrendLine instead
+  words:     { label:'Words learned',    noun:'words' },
+  gratitude: { label:'Gratitude entries',noun:'entries' },
+  activedays:{ label:'Active days',      noun:'active days' },
+};
+// One day-by-day series for a metric over an inclusive date range. Shares the
+// same underlying cache/fields every other view in the app reads from, so
+// "this week" means the same thing here as it does on each tracker's own tab.
+function dailySeries(metricKey, fromStr, toStrInclusive){
+  const dates = datesBetween(fromStr, toStrInclusive);
+  if(metricKey==='deepwork'){
+    const deepRows = [
+      ...cache.gym.filter(e=>e.intensity==='deep').map(e=>({date:e.date, val:e.duration_min})),
+      ...cache.study.filter(e=>e.intensity==='deep').map(e=>({date:e.date, val:e.minutes})),
+      ...cache.work.filter(e=>e.intensity==='deep').map(e=>({date:e.date, val:e.minutes})),
+    ];
+    return dates.map(d => deepRows.filter(e=>e.date===d).reduce((s,e)=>s+(Number(e.val)||0),0));
+  }
+  if(metricKey==='activedays'){
+    const activity = activityByDate();
+    return dates.map(d => activity.has(d) ? 1 : 0);
+  }
+  const table = { reading:[cache.reading,'minutes'], gym:[cache.gym,'duration_min'], study:[cache.study,'minutes'],
+    work:[cache.work,'minutes'], spend:[cache.finance.filter(e=>e.type==='expense'),'amount'],
+    words:[cache.words,null], gratitude:[cache.gratitude,null] };
+  const [rows, field] = table[metricKey];
+  if(field) return dates.map(d => rows.filter(e=>e.date===d).reduce((s,e)=>s+(Number(e[field])||0),0));
+  return dates.map(d => rows.filter(e=>e.date===d).length);
+}
+function renderAnalytics(){
+  const canvas = document.getElementById('chart-analytics'); if(!canvas) return;
+  const metric = document.getElementById('an-metric').value;
+  const preset = document.getElementById('an-preset').value;
+  document.getElementById('an-custom-row').style.display = preset==='custom' ? 'flex' : 'none';
+
+  let customFrom = document.getElementById('an-from').value;
+  let customTo = document.getElementById('an-to').value;
+  if(preset==='custom' && (!customFrom || !customTo)){
+    // Default the custom pickers to last-7 the first time so the chart
+    // isn't blank before the user has touched them.
+    const {thisFrom,thisTo} = periodBounds('week');
+    customTo = dateStr(addDaysDate(new Date(thisTo+'T00:00:00'),-1));
+    customFrom = thisFrom;
+    document.getElementById('an-from').value = customFrom;
+    document.getElementById('an-to').value = customTo;
+  }
+
+  const {thisFrom,thisTo,lastFrom,lastTo} = periodBounds(preset, customFrom, customTo);
+  const thisToIncl = dateStr(addDaysDate(new Date(thisTo+'T00:00:00'),-1));
+  const lastToIncl = dateStr(addDaysDate(new Date(lastTo+'T00:00:00'),-1));
+  const curDates = datesBetween(thisFrom, thisToIncl);
+  const lastDates = datesBetween(lastFrom, lastToIncl);
+  const curSeries = dailySeries(metric, thisFrom, thisToIncl);
+  const prevSeries = dailySeries(metric, lastFrom, lastToIncl);
+  const curTotal = curSeries.reduce((a,b)=>a+b,0);
+  const prevTotal = prevSeries.reduce((a,b)=>a+b,0);
+  const meta = ANALYTICS_METRICS[metric];
+  const periodLabels = preset==='month' ? {cur:'this month', prev:'last month'}
+    : preset==='custom' ? {cur:'this period', prev:'the previous period'}
+    : {cur:'this week', prev:'last week'};
+  document.getElementById('an-insight').textContent = metric==='spend'
+    ? spendTrendLine(curTotal, prevTotal, periodLabels)
+    : trendLine(curTotal, prevTotal, meta.noun, periodLabels);
+
+  const labels = curSeries.map((_,i)=>`Day ${i+1}`);
+  if(charts.analytics){ charts.analytics.destroy(); charts.analytics = null; }
+  charts.analytics = new Chart(canvas, {
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'Current period', data:curSeries, borderColor:'#a8672a', backgroundColor:'rgba(168,103,42,.15)', borderWidth:2, pointRadius:3, tension:.2, fill:true },
+      { label:'Previous period', data:prevSeries, borderColor:'#8a7a5c', borderDash:[5,4], borderWidth:2, pointRadius:0, tension:.2, fill:false }
+    ]},
+    options:{
+      scales:{ y:{beginAtZero:true, ticks:{color:'#6b5c40'}, grid:{color:'#ddccaa'}}, x:{ticks:{color:'#6b5c40'}, grid:{display:false}} },
+      plugins:{
+        legend:{ display:true, labels:{color:'#33291a'} },
+        tooltip:{ callbacks:{ title: items => {
+          const i = items[0].dataIndex;
+          return [`Current: ${curDates[i]||''}`, `Previous: ${lastDates[i]||''}`];
+        } } }
+      }
+    }
+  });
+}
+['an-metric','an-preset','an-from','an-to'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', renderAnalytics);
+});
+
 function renderDashboard(){
-  const readMin = cache.reading.reduce((s,e)=>s+(Number(e.minutes)||0),0);
-  const gymMin = cache.gym.reduce((s,e)=>s+(Number(e.duration_min)||0),0);
-  const studyMin = cache.study.reduce((s,e)=>s+(Number(e.minutes)||0),0);
-  const workMin = cache.work.reduce((s,e)=>s+(Number(e.minutes)||0),0);
-  const deepMin = [
-    ...cache.gym.map(e=>({intensity:e.intensity, min:e.duration_min})),
-    ...cache.study.map(e=>({intensity:e.intensity, min:e.minutes})),
-    ...cache.work.map(e=>({intensity:e.intensity, min:e.minutes})),
-  ].filter(e=>e.intensity==='deep').reduce((s,e)=>s+(Number(e.min)||0),0);
-  const wordsCount = cache.words.length;
-  const gratitudeCount = cache.gratitude.length;
   const netBalance = cache.finance
     .filter(e=>isThisMonth(e.date))
     .reduce((s,e)=>s+(e.type==='income'?1:-1)*(Number(e.amount)||0),0);
@@ -840,18 +1030,16 @@ function renderDashboard(){
   while(activity.has(dateStr(d))){ streak++; d.setDate(d.getDate()-1); }
   renderHeatmap(activity);
   renderDashInsight(activity);
+  renderAnalytics();
 
+  // Deliberately just 3 tiles here, each unambiguous about its own time
+  // window (a running balance, an explicit "this month", a streak). Per-
+  // metric totals and week-over-week comparisons live in the Analytics card
+  // above instead of an unlabeled all-time number that reads as "this week".
   document.getElementById('stats').innerHTML = `
-    <div class="stat"><div class="num">${readMin}</div><div class="lbl">Reading min</div></div>
-    <div class="stat"><div class="num">${gymMin}</div><div class="lbl">Gym min</div></div>
-    <div class="stat"><div class="num">${studyMin}</div><div class="lbl">Study min</div></div>
-    <div class="stat"><div class="num">${workMin}</div><div class="lbl">Work min</div></div>
-    <div class="stat"><div class="num">${deepMin}</div><div class="lbl">Deep work min</div></div>
-    <div class="stat"><div class="num">${wordsCount}</div><div class="lbl">Words learned</div></div>
-    <div class="stat"><div class="num">${gratitudeCount}</div><div class="lbl">Gratitude entries</div></div>
+    <div class="stat"><div class="num">${streak}</div><div class="lbl">Day streak</div></div>
     <div class="stat"><div class="num" style="color:${netBalance<0?'var(--danger)':'var(--positive)'}">${netBalance}</div><div class="lbl">Net this month</div></div>
     <div class="stat"><div class="num"${owedToYou>0?' style="color:var(--terracotta)"':''}>${owedToYou}</div><div class="lbl">Owed to you</div></div>
-    <div class="stat"><div class="num">${streak}</div><div class="lbl">Day streak</div></div>
   `;
 
   const last21 = lastNDates(21);
