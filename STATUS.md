@@ -47,16 +47,44 @@ to `master` on GitHub already — it just hasn't deployed yet.
 ## Explicitly deferred, needs the user's input before starting
 
 - **Search Console / Analytics data integration** into the admin
-  dashboard (keyword rankings, page performance). Needs GSC actually
-  verified (in progress, user doing this themselves) and a decision on
-  how to pull the data in.
-- **Real contact email / self-serve account deletion** for the privacy
-  policy. Currently says a contact channel is "on the way" rather than
-  exposing a personal email. Swap in a real address whenever one exists,
-  and/or build an actual delete-account flow later.
-- **Server-rendered blog post pages** (Netlify Edge Function) for proper
-  social link-preview cards (Slack/Twitter/iMessage). Current pages are
-  client-rendered like the rest of the app — fine for Google indexing,
-  but a shared post link shows the generic site preview instead of that
-  post's own title/image until this exists. Flagged as optional/future,
-  not started.
+  dashboard (keyword rankings, page performance). GSC domain verification
+  is done. Approach decided: admin re-runs Google sign-in with the added
+  `webmasters.readonly` scope and calls the GSC API client-side with the
+  transient `provider_token` Supabase exposes right after that OAuth
+  round-trip (no server secret, but needs an occasional "Reconnect" click
+  since Supabase doesn't refresh Google's provider token in the
+  background). **Blocked on the user confirming two things in Google
+  Cloud Console** (not something Claude can click through): the "Google
+  Search Console API" is enabled on the GCP project behind Supabase's
+  Google OAuth client, and the admin's Google account can consent to
+  that scope (test-user allowlist if the OAuth consent screen is still
+  in Testing mode). Once confirmed, the admin.js/admin.html wiring is a
+  contained addition.
+- ~~Real contact email / self-serve account deletion~~ — done (2026-08-30).
+  Privacy policy has a real contact address; Settings tab has a
+  "Delete all my data" button (deletes all tracked data + profile row,
+  signs out; doesn't remove the underlying auth identity — that still
+  needs a service-role Supabase Edge Function, flagged as a future
+  upgrade if ever wanted).
+- ~~Server-rendered blog post pages~~ — done (2026-08-30), not yet
+  verified live. `netlify/edge-functions/blog-meta.js` rewrites
+  `/blog/:slug` responses' title/description/OG tags per-post via Deno's
+  HTMLRewriter, using the same public anon-key read the
+  "anyone reads published posts" RLS policy already allows. Client-side
+  render in blog-post.js is unchanged and still runs as the fallback.
+  Needs a live check once Netlify's deploy pause lifts and this is on
+  `master` (same checklist as the blog CMS above): share a `/blog/<slug>`
+  link and confirm Slack/Twitter/iMessage show that post's own
+  title/image instead of the generic site card.
+
+## Also fixed this session (2026-08-30), not in the original list
+
+Dashboard's top stats row was showing all-time per-tracker totals
+(e.g. "Gym min") unlabeled as such, directly under weekly-activity
+copy — easy to misread as "this week" (source of a real bug report:
+"250 min gym when I didn't go this week"). Replaced with an Analytics
+card (metric picker, this-week/month/custom vs. the prior equal-length
+period, line chart + trend copy) and trimmed the dashboard's stat row to
+three tiles that are unambiguous about their own time window. Finance
+expenses now pick from a fixed category list with a "spend by category"
+chart. All on `dev`, not yet on `master`.
