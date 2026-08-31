@@ -62,6 +62,59 @@ async function loadDashboard(){
   renderStats(data);
   renderChart(data);
   renderList(data);
+  loadSearchConsole(); // independent of the profiles data above; doesn't block it
+}
+
+// ---- Search Console (via the gsc-sync service account, proxied through
+// netlify/functions/gsc-search-analytics.js -- see that file's header for
+// why a server-side function rather than a client-side OAuth scope) ----
+async function fetchGscRows(body, accessToken){
+  try{
+    const res = await fetch('/.netlify/functions/gsc-search-analytics', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${accessToken}` },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if(!res.ok) return { error: data.error || `Request failed (${res.status})` };
+    return { rows: data.rows || [] };
+  } catch(e){
+    return { error: e.message };
+  }
+}
+function renderGscRows(containerId, rows, kind){
+  const el = document.getElementById(containerId);
+  if(!rows || rows.length===0){ el.innerHTML = '<div class="empty">No data yet.</div>'; return; }
+  el.innerHTML = rows.map(r=>{
+    const label = (r.keys && r.keys[0]) || '(unknown)';
+    const shown = kind==='page' ? label.replace(/^https:\/\/groundworklog\.com/, '') || '/' : label;
+    const ctr = ((r.ctr||0)*100).toFixed(1);
+    return `
+      <div class="entry">
+        <div class="entry-head"><span class="entry-title">${esc(shown)}</span><span>${r.clicks} clicks</span></div>
+        <div class="entry-note">${r.impressions} impressions &middot; ${ctr}% CTR &middot; avg position ${(r.position||0).toFixed(1)}</div>
+      </div>`;
+  }).join('');
+}
+async function loadSearchConsole(){
+  const statusEl = document.getElementById('gsc-status');
+  const contentEl = document.getElementById('gsc-content');
+  try{
+    const {data:{session}} = await sb.auth.getSession();
+    if(!session){ statusEl.textContent = 'Not signed in.'; return; }
+    const [queries, pages] = await Promise.all([
+      fetchGscRows({dimensions:['query']}, session.access_token),
+      fetchGscRows({dimensions:['page']}, session.access_token),
+    ]);
+    if(queries.error){ statusEl.textContent = queries.error; return; }
+    if(pages.error){ statusEl.textContent = pages.error; return; }
+    statusEl.style.display = 'none';
+    contentEl.style.display = 'block';
+    renderGscRows('gsc-queries', queries.rows, 'query');
+    renderGscRows('gsc-pages', pages.rows, 'page');
+  } catch(e){
+    statusEl.textContent = `Couldn't load Search Console data: ${e.message}`;
+  }
 }
 
 function renderStats(rows){

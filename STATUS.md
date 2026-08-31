@@ -47,19 +47,29 @@ to `master` on GitHub already — it just hasn't deployed yet.
 ## Explicitly deferred, needs the user's input before starting
 
 - **Search Console / Analytics data integration** into the admin
-  dashboard (keyword rankings, page performance). GSC domain verification
-  is done. Approach decided: admin re-runs Google sign-in with the added
-  `webmasters.readonly` scope and calls the GSC API client-side with the
-  transient `provider_token` Supabase exposes right after that OAuth
-  round-trip (no server secret, but needs an occasional "Reconnect" click
-  since Supabase doesn't refresh Google's provider token in the
-  background). **Blocked on the user confirming two things in Google
-  Cloud Console** (not something Claude can click through): the "Google
-  Search Console API" is enabled on the GCP project behind Supabase's
-  Google OAuth client, and the admin's Google account can consent to
-  that scope (test-user allowlist if the OAuth consent screen is still
-  in Testing mode). Once confirmed, the admin.js/admin.html wiring is a
-  contained addition.
+  dashboard (keyword rankings, page performance). Turned out there was
+  already a GCP project `studyers-search-console` set up for exactly
+  this, with the Search Console API enabled and a service account
+  `gsc-sync@studyers-search-console.iam.gserviceaccount.com` (Restricted
+  access, added to the groundworklog.com property 2026-08-31). Built:
+  `netlify/functions/gsc-search-analytics.js` (signs its own JWT with
+  Node's built-in `crypto`, no dependencies, gated on the caller being
+  the admin via their Supabase session) plus the admin.js/admin.html
+  "Search Console" card that calls it. **Still needs, from the user, before
+  this works live:**
+  1. Generate a fresh service-account key (Google Cloud Console → IAM →
+     Service Accounts → gsc-sync → Keys → Add key → JSON) -- the Aug 26
+     key's material was never seen by Claude and the user no longer has
+     it, so a new one is required. Downloading this is a credential and
+     stays a manual, user-only step.
+  2. Paste that JSON's full contents as a Netlify environment variable
+     named `GSC_SERVICE_ACCOUNT_KEY` (Netlify site → Project configuration
+     → Environment variables). Also a user-only step -- Claude never
+     handles the raw key.
+  3. Redeploy (or wait for the next deploy once Netlify's pause lifts)
+     so the function picks up the new env var, then check the admin
+     dashboard's "Search Console" card loads real rows instead of an
+     error.
 - ~~Real contact email / self-serve account deletion~~ — done (2026-08-30).
   Privacy policy has a real contact address; Settings tab has a
   "Delete all my data" button (deletes all tracked data + profile row,

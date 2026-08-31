@@ -50,6 +50,17 @@
       <div class="card"><div class="toprow"><strong>Signups, last 30 days</strong></div><canvas id="chart-signups"></canvas></div>
       <div class="card"><div class="toprow"><strong>Most recent signups</strong></div><div id="admin-list"></div></div>
       <p class="hint" id="admin-error" style="color:var(--danger);"></p>
+
+      <div class="card">
+        <div class="toprow"><strong>Search Console, last 28 days</strong></div>
+        <p class="hint" id="gsc-status">Loading Search Console data&hellip;</p>
+        <div id="gsc-content" style="display:none;">
+          <div class="toprow" style="margin-top:4px;"><strong style="font-size:.92rem;">Top queries</strong></div>
+          <div id="gsc-queries"></div>
+          <div class="toprow" style="margin-top:18px;"><strong style="font-size:.92rem;">Top pages</strong></div>
+          <div id="gsc-pages"></div>
+        </div>
+      </div>
     </div>
 
     <div class="panel" id="panel-blog">
