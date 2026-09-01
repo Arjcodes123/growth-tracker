@@ -8,6 +8,11 @@
 //
 // Matches /blog/:slug via the `config.path` glob below -- not /blog itself
 // (the listing page), which has no slug segment.
+//
+// HTMLRewriter is a Cloudflare Workers API, not a Netlify/Deno global --
+// Netlify's own edge-functions-examples repo imports it from this package
+// for exactly this use case.
+import { HTMLRewriter } from "https://ghuc.cc/worker-tools/html-rewriter/index.ts";
 
 const SUPABASE_URL = 'https://olfbcqtinzbhxvwipedb.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Xk_aSrS3MnKtIoEUUc0uJw_5JUl1IiI';
