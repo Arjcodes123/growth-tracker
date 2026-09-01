@@ -1,100 +1,47 @@
-# Status — paused for Netlify billing, resume after Sept 1 2026
+# Status — one thing left open: Search Console
 
-Netlify paused production deploys on this account ("running on operational
-credits"). The live site keeps serving its last successful deploy; nothing
-breaks, but new pushes won't go out until the team is upgraded or the next
-billing cycle resets (~Sept 1 2026). Everything below is written and pushed
-to `master` on GitHub already — it just hasn't deployed yet.
+Netlify's billing pause is over (new billing period started Aug 31); deploys
+are live and auto-publishing from `master` again. Everything that was
+blocked on that is done and verified live, including the blog CMS end-to-end
+check (see below). The only thing still open is finishing the Search Console
+integration, which needs two manual, credential-handling steps only the
+account owner can do.
 
-## First thing when picking this back up
+## Search Console integration — needs the user to finish setup
 
-1. Confirm Netlify deploys have resumed (check
-   https://app.netlify.com/projects/studyers-growth-tracker/deploys — should
-   say "Published master@aea8c2f" or later, not stuck at `8c299c6`).
-2. Live-test `/blog/test-something` end to end again: create a throwaway
-   post in `/admin.html` → Blog tab, publish it, confirm the post page at
-   `/blog/<slug>` actually renders (title, body, meta tags) instead of the
-   blank/unstyled page the relative-path bug caused, then delete the test
-   post the same way we did before (Blog tab → open post → Delete, or via
-   `sb.from('posts').delete()` in devtools if the UI button isn't handy).
-3. If that renders clean, the blog CMS is fully done and this file can be
-   deleted.
+Built and live: `netlify/functions/gsc-search-analytics.js` (signs its own
+JWT with Node's built-in `crypto`, no dependencies, gated on the caller
+being the admin via their Supabase session) and the "Search Console" card
+on `/admin.html`'s Overview tab. The `gsc-sync@studyers-search-console.iam.gserviceaccount.com`
+service account has Restricted access on the groundworklog.com property.
 
-## What's already built and working (independent of the deploy pause)
+Still needed, deliberately left to the user (Claude doesn't handle raw
+credentials):
 
-- Domain, DNS, security headers, security audit, Supabase/Google OAuth
-  wiring — all live and verified.
-- Per-tab "Ground Level" stats + insights, onboarding + Settings tab
-  customization, finance debt/pending-payment tracking — all live and
-  verified.
-- Public landing page + SEO meta/OG tags, `/app.html` split, sitemap,
-  robots.txt — all live and verified.
-- Admin dashboard (`/admin.html`) — signups, DAU/WAU/MAU, signups chart —
-  live and verified with real data.
-- Privacy policy (`/privacy.html`) — live, linked from landing footer, app
-  Settings tab, and every blog/policy page nav.
-- Google Search Console verification file is live
-  (`google57eeb28a7a2fa523.html`) — confirm with the user whether they
-  finished clicking "Verify" in Search Console.
-- Blog CMS (`/blog`, `/blog/:slug`, admin Blog tab, SEO/readability
-  scorer) — fully built, tested locally and with real writes against
-  production Supabase. One bug was caught live and fixed (relative asset
-  paths breaking under `/blog/:slug`'s nested URL) — that fix is pushed
-  but **not yet deployed** because of the billing pause. This is the one
-  piece that still needs a final live check once deploys resume (see
-  above).
+1. Generate a fresh service-account key: Google Cloud Console → IAM →
+   Service Accounts → `gsc-sync` → Keys → Add key → JSON. (An earlier key
+   from Aug 26 exists but its material was never seen here and is gone, so
+   a new one is required.)
+2. Paste that JSON's full contents into a Netlify environment variable
+   named `GSC_SERVICE_ACCOUNT_KEY` (site → Project configuration →
+   Environment variables), then redeploy.
+3. Confirm the admin dashboard's "Search Console" card loads real rows
+   instead of an error.
 
-## Explicitly deferred, needs the user's input before starting
+## Verified live (2026-09-01/02)
 
-- **Search Console / Analytics data integration** into the admin
-  dashboard (keyword rankings, page performance). Turned out there was
-  already a GCP project `studyers-search-console` set up for exactly
-  this, with the Search Console API enabled and a service account
-  `gsc-sync@studyers-search-console.iam.gserviceaccount.com` (Restricted
-  access, added to the groundworklog.com property 2026-08-31). Built:
-  `netlify/functions/gsc-search-analytics.js` (signs its own JWT with
-  Node's built-in `crypto`, no dependencies, gated on the caller being
-  the admin via their Supabase session) plus the admin.js/admin.html
-  "Search Console" card that calls it. **Still needs, from the user, before
-  this works live:**
-  1. Generate a fresh service-account key (Google Cloud Console → IAM →
-     Service Accounts → gsc-sync → Keys → Add key → JSON) -- the Aug 26
-     key's material was never seen by Claude and the user no longer has
-     it, so a new one is required. Downloading this is a credential and
-     stays a manual, user-only step.
-  2. Paste that JSON's full contents as a Netlify environment variable
-     named `GSC_SERVICE_ACCOUNT_KEY` (Netlify site → Project configuration
-     → Environment variables). Also a user-only step -- Claude never
-     handles the raw key.
-  3. Redeploy (or wait for the next deploy once Netlify's pause lifts)
-     so the function picks up the new env var, then check the admin
-     dashboard's "Search Console" card loads real rows instead of an
-     error.
-- ~~Real contact email / self-serve account deletion~~ — done (2026-08-30).
-  Privacy policy has a real contact address; Settings tab has a
-  "Delete all my data" button (deletes all tracked data + profile row,
-  signs out; doesn't remove the underlying auth identity — that still
-  needs a service-role Supabase Edge Function, flagged as a future
-  upgrade if ever wanted).
-- ~~Server-rendered blog post pages~~ — done (2026-08-30), not yet
-  verified live. `netlify/edge-functions/blog-meta.js` rewrites
-  `/blog/:slug` responses' title/description/OG tags per-post via Deno's
-  HTMLRewriter, using the same public anon-key read the
-  "anyone reads published posts" RLS policy already allows. Client-side
-  render in blog-post.js is unchanged and still runs as the fallback.
-  Needs a live check once Netlify's deploy pause lifts and this is on
-  `master` (same checklist as the blog CMS above): share a `/blog/<slug>`
-  link and confirm Slack/Twitter/iMessage show that post's own
-  title/image instead of the generic site card.
-
-## Also fixed this session (2026-08-30), not in the original list
-
-Dashboard's top stats row was showing all-time per-tracker totals
-(e.g. "Gym min") unlabeled as such, directly under weekly-activity
-copy — easy to misread as "this week" (source of a real bug report:
-"250 min gym when I didn't go this week"). Replaced with an Analytics
-card (metric picker, this-week/month/custom vs. the prior equal-length
-period, line chart + trend copy) and trimmed the dashboard's stat row to
-three tiles that are unambiguous about their own time window. Finance
-expenses now pick from a fixed category list with a "spend by category"
-chart. All on `dev`, not yet on `master`.
+- Production deploy from `master` succeeds (confirmed via a real push).
+- Blog CMS end-to-end: created a throwaway published post, confirmed
+  `/blog/<slug>` renders fully styled (title, date, formatted body,
+  internal/external links) instead of the old blank/unstyled page, and
+  confirmed the server-rendered social-preview tags
+  (`netlify/edge-functions/blog-meta.js`) show the post's real
+  title/description in the raw HTML response, not the generic site
+  default. Caught and fixed one real bug in the process: `HTMLRewriter`
+  isn't a Netlify/Deno global (it's a Cloudflare Workers API) — needed an
+  explicit import. Deleted the test post afterward; admin Blog tab
+  confirmed clean ("No posts yet").
+- Dashboard analytics (week/month/custom comparisons), fixed expense
+  categories (now including Donations and Family/Friends) with the
+  spend-by-category chart, contact email + self-serve data deletion — all
+  live and spot-checked.
