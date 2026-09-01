@@ -29,13 +29,17 @@ const TAB_LABELS = { reading:'Reading', gym:'Gym', study:'Study', work:'Work', j
 const OPTIONAL_TABS = Object.keys(TAB_LABELS);
 
 // Fixed expense categories (income stays freeform -- see the finance form).
+// "Travelling" and "Miscellaneous" aren't separate entries here -- they're
+// the same concept as the existing Travel and Other, so folding them in
+// avoids a near-duplicate category rather than adding one.
 // Colors are a validated categorical set (see dataviz skill); "Other" and any
 // legacy freeform category from before this list existed get a neutral gray
 // rather than a generated hue.
-const EXPENSE_CATEGORIES = ['Food','Travel','Rent','Bills','Leisure','Investment','Health','Shopping','Other'];
+const EXPENSE_CATEGORIES = ['Food','Travel','Rent','Bills','Leisure','Investment','Health','Shopping','Donations','Family/Friends','Other'];
 const CATEGORY_COLORS = {
   Food:'#2a78d6', Travel:'#eb6834', Rent:'#1baf7a', Bills:'#eda100', Leisure:'#e87ba4',
-  Investment:'#008300', Health:'#4a3aa7', Shopping:'#e34948', Other:'#8a7a5c'
+  Investment:'#008300', Health:'#4a3aa7', Shopping:'#e34948', Donations:'#8e44ad',
+  'Family/Friends':'#b8860b', Other:'#8a7a5c'
 };
 
 function esc(s){
