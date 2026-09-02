@@ -303,7 +303,11 @@ function periodBounds(preset, customFrom, customTo){
   const today = new Date();
   let fromStr, toStr;
   if(preset==='month'){
-    fromStr = dateStr(new Date(today.getFullYear(), today.getMonth(), 1));
+    // A rolling 30-day window, same idea as "week" below just wider -- not
+    // calendar-month-to-date. Anchoring to the 1st of the calendar month
+    // made early-month comparisons compare a couple of days of this month
+    // against the tail end of last month, which read as broken.
+    fromStr = dateStr(addDaysDate(today,-29));
     toStr = todayLocal();
   } else if(preset==='custom'){
     fromStr = customFrom; toStr = customTo;
@@ -990,7 +994,7 @@ function renderAnalytics(){
   const curTotal = curSeries.reduce((a,b)=>a+b,0);
   const prevTotal = prevSeries.reduce((a,b)=>a+b,0);
   const meta = ANALYTICS_METRICS[metric];
-  const periodLabels = preset==='month' ? {cur:'this month', prev:'last month'}
+  const periodLabels = preset==='month' ? {cur:'the last 30 days', prev:'the 30 days before that'}
     : preset==='custom' ? {cur:'this period', prev:'the previous period'}
     : {cur:'this week', prev:'last week'};
   document.getElementById('an-insight').textContent = metric==='spend'
