@@ -258,6 +258,7 @@ function collectPostFields(){
 async function savePost(status){
   const fields = collectPostFields();
   if(!fields.title || !fields.slug){ alert('Title and slug are required.'); return; }
+  if(!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(fields.slug)){ alert('Slug must be lowercase letters, numbers, and hyphens only (e.g. my-post-title).'); return; }
   fields.status = status;
   fields.updated_at = new Date().toISOString();
   if(status==='published') fields.published_at = new Date().toISOString();
@@ -286,6 +287,20 @@ document.getElementById('post-delete-btn').addEventListener('click', async ()=>{
 });
 
 // ---- SEO & readability scorer ----
+// Ported from a reusable analysis-engine kit (12-point SEO/AEO checklist +
+// scored readability check, 0-100 each) built for a Next.js/Prisma project.
+// The scoring rules and thresholds are kept faithful to that spec; only the
+// extraction layer changes, since posts here are stored as raw Markdown
+// (with inline HTML allowed) rather than editor-generated HTML -- so
+// "extract headings/paragraphs/links/images" reads Markdown syntax (and the
+// occasional raw tag) via regex instead of parsing <p>/<h2>/<a>/<img> tags.
+
+const SEO_THRESHOLDS = {
+  minKeyphraseOccurrences: 2, minKeyphraseDensity: 0.5, maxKeyphraseDensity: 3.0,
+  minContentWords: 300, metaDescMin: 120, metaDescMax: 156, titleMin: 40, titleMax: 60,
+};
+const READABILITY_THRESHOLDS = { paragraphMaxWords: 55, sectionMaxWords: 300, minContentWords: 300 };
+
 // Strips Markdown syntax and HTML tags so word/phrase counts reflect what a
 // reader (and a search engine) actually sees, not the markup.
 function toPlainText(body){
@@ -297,110 +312,228 @@ function toPlainText(body){
     .replace(/\s+/g, ' ')
     .trim();
 }
+function wordCount(text){ const t = text.trim(); return t ? t.split(/\s+/).length : 0; }
 function countOccurrences(haystack, needle){
   if(!needle) return 0;
   let count = 0, pos = 0;
   while((pos = haystack.indexOf(needle, pos)) !== -1){ count++; pos += needle.length; }
   return count;
 }
-const AI_TELL_PHRASES = [
-  "delve into", "in today's fast-paced world", "it's important to note",
-  "moreover,", "furthermore,", "unleash", "unlock the power", "in conclusion,",
-  "navigating the", "a testament to", "plays a crucial role", "left an indelible mark",
-  "stands as a", "in the realm of", "when it comes to", "it is worth noting",
-];
+function hasPhrase(text, phrase){ return phrase.length>0 && text.toLowerCase().includes(phrase.toLowerCase()); }
 
-function analyzePost(fields){
-  const checks = [];
-  const plain = toPlainText(fields.body);
-  const plainLower = plain.toLowerCase();
-
-  // Title
-  const titleLen = fields.title.length;
-  if(titleLen===0) checks.push({level:'error', msg:'Title is empty.'});
-  else if(titleLen<30 || titleLen>65) checks.push({level:'warn', msg:`Title is ${titleLen} characters. Aim for 30 to 65 so it doesn't get cut off in search results.`});
-  else checks.push({level:'ok', msg:'Title length looks good.'});
-
-  // Meta description
-  const metaLen = fields.meta_description.length;
-  if(metaLen===0) checks.push({level:'error', msg:'Meta description is empty.'});
-  else if(metaLen<120 || metaLen>160) checks.push({level:'warn', msg:`Meta description is ${metaLen} characters. Aim for 120 to 160.`});
-  else checks.push({level:'ok', msg:'Meta description length looks good.'});
-
-  // Focus keyphrase
-  if(!fields.focus_keyphrase){
-    checks.push({level:'warn', msg:'No focus keyphrase set.'});
-  } else {
-    const kp = fields.focus_keyphrase.toLowerCase();
-    const count = countOccurrences(plainLower, kp);
-    if(count===0) checks.push({level:'error', msg:`Focus keyphrase "${fields.focus_keyphrase}" does not appear in the body.`});
-    else if(count===1) checks.push({level:'warn', msg:'Focus keyphrase appears only once. Consider using it 2 to 4 times.'});
-    else if(count>8) checks.push({level:'warn', msg:`Focus keyphrase appears ${count} times. That may read as keyword stuffing.`});
-    else checks.push({level:'ok', msg:`Focus keyphrase appears ${count} times.`});
-    if(fields.title && !fields.title.toLowerCase().includes(kp)) checks.push({level:'warn', msg:'Focus keyphrase is missing from the title.'});
-  }
-
-  // Related keywords
-  if(fields.related_keywords){
-    const keywords = fields.related_keywords.split(',').map(k=>k.trim()).filter(Boolean);
-    const missing = keywords.filter(k => !plainLower.includes(k.toLowerCase()));
-    if(missing.length) checks.push({level:'warn', msg:`Related keywords not found in body: ${missing.join(', ')}`});
-    else if(keywords.length) checks.push({level:'ok', msg:'All related keywords appear in the body.'});
-  }
-
-  // Em dashes
-  const emDashCount = (fields.body.match(/—/g)||[]).length;
-  if(emDashCount>0) checks.push({level:'warn', msg:`Found ${emDashCount} em dash${emDashCount===1?'':'es'}. Often reads as AI-written; consider a period or comma instead.`});
-  else checks.push({level:'ok', msg:'No em dashes.'});
-
-  // AI-tell phrases
-  const foundPhrases = AI_TELL_PHRASES.filter(p => plainLower.includes(p));
-  if(foundPhrases.length) checks.push({level:'warn', msg:`Phrases that read as AI-generated: ${foundPhrases.join(', ')}`});
-  else checks.push({level:'ok', msg:'No common AI-tell phrases found.'});
-
-  // Paragraph length (roughly 3 to 4 lines ~ 480 characters)
-  const paragraphs = fields.body.split(/\n\s*\n/).map(p=>p.trim()).filter(p => p && !p.startsWith('#'));
-  const longParas = paragraphs.filter(p => p.replace(/\s+/g,' ').length > 480);
-  if(longParas.length) checks.push({level:'warn', msg:`${longParas.length} paragraph${longParas.length===1?'':'s'} run longer than 3 to 4 lines. Consider breaking them up.`});
-  else if(paragraphs.length) checks.push({level:'ok', msg:'Paragraph lengths look good.'});
-
-  // Section length (content between headings)
-  const sections = fields.body.split(/\n#{1,3}\s+/).slice(1);
-  const longSections = sections.filter(s => toPlainText(s).split(/\s+/).filter(Boolean).length > 250);
-  if(longSections.length) checks.push({level:'warn', msg:`${longSections.length} section${longSections.length===1?'':'s'} run long without a subheading break.`});
-  else if(sections.length) checks.push({level:'ok', msg:'Section lengths look good.'});
-
-  // Links and images
-  const internalLinks = (fields.body.match(/(?<!!)\[[^\]]*\]\(\/[^)]*\)/g)||[]).length + (fields.body.match(/href=["']\/(?!\/)[^"']*/g)||[]).length;
-  const externalLinks = (fields.body.match(/(?<!!)\[[^\]]*\]\(https?:\/\/[^)]*\)/g)||[]).length + (fields.body.match(/href=["']https?:\/\/[^"']*/g)||[]).length;
-  const images = (fields.body.match(/!\[[^\]]*\]\([^)]*\)/g)||[]).length + (fields.body.match(/<img[\s>]/g)||[]).length;
-  checks.push(internalLinks===0 ? {level:'warn', msg:'No internal links found.'} : {level:'ok', msg:`${internalLinks} internal link${internalLinks===1?'':'s'} found.`});
-  checks.push(externalLinks===0 ? {level:'warn', msg:'No external links found.'} : {level:'ok', msg:`${externalLinks} external link${externalLinks===1?'':'s'} found.`});
-  checks.push(images===0 ? {level:'warn', msg:'No images found.'} : {level:'ok', msg:`${images} image${images===1?'':'s'} found.`});
-
-  // Stray head-level tags pasted into the body
-  if(/<head[\s>]|<title[\s>]|<meta\s/i.test(fields.body)){
-    checks.push({level:'error', msg:'Body contains head/title/meta tags. Those belong in the dedicated fields above, not the post body, and will not render correctly inline.'});
-  }
-
-  // Word count, informational
-  const wordCount = plain.split(/\s+/).filter(Boolean).length;
-  checks.push({level:'info', msg:`${wordCount} words.`});
-
-  return checks;
+// Markdown-aware equivalents of the kit's HTML extractors.
+function extractParagraphs(body){
+  return String(body||'').split(/\n\s*\n/).map(p=>p.trim())
+    .filter(p => p && !p.startsWith('#'))
+    .map((text,index) => ({ index, text: toPlainText(text), words: wordCount(toPlainText(text)) }));
+}
+function extractHeadings(body){
+  return [...String(body||'').matchAll(/^(#{1,6})\s+(.*)$/gm)]
+    .map(m => ({ level: m[1].length, text: m[2].trim() }));
+}
+function extractSections(body){
+  const parts = String(body||'').split(/\n#{2,3}\s+/);
+  const headingMatches = [...String(body||'').matchAll(/\n#{2,3}\s+([^\n]*)/g)].map(m=>m[1].trim());
+  return parts.map((chunk,i) => ({ heading: i===0 ? null : (headingMatches[i-1]||null), words: wordCount(toPlainText(chunk)) }));
+}
+function extractLinks(body){
+  const internal = (body.match(/(?<!!)\[[^\]]*\]\(\/[^)]*\)/g)||[]).length + (body.match(/href=["']\/(?!\/)[^"']*/g)||[]).length;
+  const external = (body.match(/(?<!!)\[[^\]]*\]\(https?:\/\/[^)]*\)/g)||[]).length + (body.match(/href=["']https?:\/\/[^"']*/g)||[]).length;
+  return { internal, external };
+}
+function extractImages(body){
+  const mdImages = [...String(body||'').matchAll(/!\[([^\]]*)\]\([^)]*\)/g)].map(m => ({ hasAlt: m[1].trim().length>0 }));
+  const rawImages = [...String(body||'').matchAll(/<img\b[^>]*>/gi)].map(tag => {
+    const altMatch = tag[0].match(/alt=["']([^"']*)["']/i);
+    return { hasAlt: !!(altMatch && altMatch[1].trim().length>0) };
+  });
+  const all = [...mdImages, ...rawImages];
+  return { count: all.length, missingAlt: all.filter(i=>!i.hasAlt).length };
 }
 
+const AI_CLICHE_PHRASES = [
+  "in today's fast-paced world", "in today's digital age", "in the ever-evolving landscape",
+  "in the ever-changing landscape", "in the realm of", "delve into", "delving into", "dive into",
+  "diving into", "let's dive in", "unlock the power of", "unleash the power of", "elevate your",
+  "game changer", "game-changer", "it's important to note that", "it is important to note that",
+  "moreover,", "furthermore,", "in conclusion,", "to sum up,", "in summary,", "navigating the",
+  "testament to", "a testament to", "tapestry of", "rich tapestry", "vibrant tapestry",
+  "unwavering commitment", "plethora of", "myriad of", "seamless", "seamlessly", "robust",
+  "cutting-edge", "state-of-the-art", "leverage", "leveraging", "harness the power of",
+  "at the end of the day", "when it comes to", "in a world where", "boasts", "stands as a testament",
+  "whether you're", "look no further", "buckle up", "the world of", "as an ai language model",
+  "revolutionize", "revolutionizing", "transformative", "holistic approach", "synergy", "synergize",
+  "paradigm shift", "unparalleled", "top-notch", "in this article, we", "in this blog post, we",
+  "without further ado",
+];
+
+// 12-point SEO/AEO checklist, 0-100 score built from points-earned /
+// points-available across all checks (not a flat pass/fail count).
+function analyzeSeo(fields){
+  const T = SEO_THRESHOLDS;
+  const plain = toPlainText(fields.body);
+  const bodyWords = wordCount(plain);
+  const kp = fields.focus_keyphrase.trim();
+  const kpLower = kp.toLowerCase();
+  const plainLower = plain.toLowerCase();
+
+  const keyphraseCount = kp ? countOccurrences(plainLower, kpLower) : 0;
+  const keyphraseDensity = bodyWords>0 ? (keyphraseCount/bodyWords)*100 : 0;
+  const keyphraseCountMet = keyphraseCount >= T.minKeyphraseOccurrences && keyphraseDensity >= T.minKeyphraseDensity;
+
+  const paragraphs = extractParagraphs(fields.body);
+  const firstParagraph = paragraphs[0]?.text || '';
+  const subheadings = extractHeadings(fields.body).filter(h => h.level>=2);
+  const links = extractLinks(fields.body);
+  const images = extractImages(fields.body);
+
+  const checks = [];
+  const push = (id, level, msg, points, maxPoints) => checks.push({id, level, msg, points, maxPoints});
+
+  if(!kp) push('kp-set','error','No focus keyphrase set. Add one to unlock the rest of the SEO checklist.',0,5);
+  else push('kp-set','ok',`Focus keyphrase: "${kp}"`,5,5);
+
+  if(kp && hasPhrase(fields.title, kp)) push('kp-title','ok','Focus keyphrase found in the title.',10,10);
+  else push('kp-title', kp?'error':'warn', 'Focus keyphrase is missing from the title.',0,10);
+
+  if(kp && hasPhrase(fields.slug.replace(/-/g,' '), kp)) push('kp-slug','ok','Focus keyphrase found in the URL slug.',8,8);
+  else push('kp-slug','warn','Focus keyphrase is missing from the URL slug.',0,8);
+
+  if(kp && hasPhrase(firstParagraph, kp)) push('kp-intro','ok','Focus keyphrase appears early, in the first paragraph.',10,10);
+  else push('kp-intro', kp?'error':'warn', "Focus keyphrase doesn't appear in the first paragraph.",0,10);
+
+  const kpInHeading = kp && subheadings.some(h => hasPhrase(h.text, kp));
+  if(kpInHeading) push('kp-heading','ok','Focus keyphrase found in a subheading.',8,8);
+  else push('kp-heading','warn',"Focus keyphrase doesn't appear in any H2/H3 subheading.",0,8);
+
+  if(!kp) push('kp-density','warn','Set a focus keyphrase to check density.',0,12);
+  else if(keyphraseCount===0) push('kp-density','error',"Focus keyphrase doesn't appear in the body content at all.",0,12);
+  else if(keyphraseDensity < T.minKeyphraseDensity) push('kp-density','warn',`Keyphrase density is ${keyphraseDensity.toFixed(2)}% (${keyphraseCount}×), a little low. Aim for ${T.minKeyphraseDensity} to ${T.maxKeyphraseDensity}%.`,6,12);
+  else if(keyphraseDensity > T.maxKeyphraseDensity) push('kp-density','error',`Keyphrase density is ${keyphraseDensity.toFixed(2)}% (${keyphraseCount}×), too high. Reads as keyword stuffing.`,4,12);
+  else push('kp-density','ok',`Keyphrase density is ${keyphraseDensity.toFixed(2)}% (${keyphraseCount}×). Healthy range.`,12,12);
+
+  if(!fields.meta_description){
+    push('meta-desc','warn', keyphraseCountMet ? "No meta description yet. You've used the keyphrase enough times, go ahead and write one." : `Meta description is locked until the focus keyphrase appears at least ${T.minKeyphraseOccurrences}× at healthy density.`, 0, 12);
+  } else {
+    const len = fields.meta_description.length;
+    const containsKp = kp && hasPhrase(fields.meta_description, kp);
+    if(!containsKp) push('meta-desc','warn',"Meta description doesn't contain the focus keyphrase.",5,12);
+    else if(len < T.metaDescMin || len > T.metaDescMax) push('meta-desc','warn',`Meta description is ${len} characters. Aim for ${T.metaDescMin}-${T.metaDescMax}.`,8,12);
+    else push('meta-desc','ok',`Meta description looks good (${len} characters, includes keyphrase).`,12,12);
+  }
+
+  const titleLen = fields.title.length;
+  if(titleLen < T.titleMin || titleLen > T.titleMax) push('title-length','warn',`Title is ${titleLen} characters. Aim for ${T.titleMin}-${T.titleMax} so it doesn't get cut off in search results.`,4,8);
+  else push('title-length','ok',`Title length is good (${titleLen} characters).`,8,8);
+
+  if(links.internal>0) push('internal-links','ok',`${links.internal} internal link${links.internal===1?'':'s'} found.`,10,10);
+  else push('internal-links','error','No internal links. Link to at least one other page on the site.',0,10);
+
+  if(links.external>0) push('external-links','ok',`${links.external} external link${links.external===1?'':'s'} found.`,8,8);
+  else push('external-links','warn','No external links. Linking to a reputable source can help credibility.',0,8);
+
+  if(images.count===0) push('images','error','No images in this post. Add at least one.',0,9);
+  else if(images.missingAlt>0) push('images','warn',`${images.count} image${images.count===1?'':'s'} found, but ${images.missingAlt} missing alt text.`,5,9);
+  else push('images','ok',`${images.count} image${images.count===1?'':'s'}, all with alt text.`,9,9);
+
+  if(bodyWords < T.minContentWords) push('length','warn',`${bodyWords} words. Under ${T.minContentWords} is thin for competitive ranking.`,4,8);
+  else push('length','ok',`${bodyWords} words, solid length for SEO.`,8,8);
+
+  // Related keywords: informational occurrence counts, no pass/fail gate.
+  const relatedResults = fields.related_keywords.split(',').map(k=>k.trim()).filter(Boolean)
+    .map(keyword => ({ keyword, count: countOccurrences(plainLower, keyword.toLowerCase()) }));
+  if(relatedResults.length){
+    const summary = relatedResults.map(r => `"${r.keyword}" (${r.count}×)`).join(', ');
+    push('related', relatedResults.every(r=>r.count>0) ? 'ok' : 'warn', `Related keywords: ${summary}`, 0, 0);
+  }
+
+  const earned = checks.reduce((s,c)=>s+c.points,0);
+  const total = checks.reduce((s,c)=>s+c.maxPoints,0);
+  return { score: total>0 ? Math.round((earned/total)*100) : 0, keyphraseCountMet, checks };
+}
+
+// Scored readability check: starts at 100, deducts per offending instance
+// (capped per category so one wild paragraph can't zero the score).
+function analyzeReadability(fields){
+  const T = READABILITY_THRESHOLDS;
+  const plain = toPlainText(fields.body);
+  const words = wordCount(plain);
+  const plainLower = plain.toLowerCase();
+  const issues = [];
+
+  const emDashCount = (fields.body.match(/—/g)||[]).length + (fields.body.match(/&mdash;/g)||[]).length;
+  issues.push(emDashCount>0
+    ? {level: emDashCount>3?'error':'warn', msg:`${emDashCount} em dash${emDashCount===1?'':'es'} found. Often a tell for AI-written text, consider a period, comma, or parentheses instead.`}
+    : {level:'ok', msg:'No em dashes found.'});
+
+  const aiMatches = AI_CLICHE_PHRASES.map(p => ({phrase:p, count: countOccurrences(plainLower, p)})).filter(m=>m.count>0);
+  const totalAiPhrases = aiMatches.reduce((s,m)=>s+m.count,0);
+  if(totalAiPhrases>0){
+    const preview = aiMatches.slice(0,5).map(m => `"${m.phrase}"${m.count>1?` (×${m.count})`:''}`).join(', ');
+    issues.push({level: totalAiPhrases>4?'error':'warn', msg:`${totalAiPhrases} AI-cliché phrase${totalAiPhrases===1?'':'s'} found: ${preview}${aiMatches.length>5?'…':''}`});
+  } else {
+    issues.push({level:'ok', msg:'No stock AI phrases detected.'});
+  }
+
+  const paragraphs = extractParagraphs(fields.body);
+  const longParagraphs = paragraphs.filter(p => p.words > T.paragraphMaxWords);
+  if(longParagraphs.length){
+    issues.push({level: longParagraphs.length>2?'error':'warn', msg:`${longParagraphs.length} paragraph${longParagraphs.length===1?'':'s'} run longer than ~3-4 lines (paragraph ${longParagraphs.map(p=>`#${p.index+1}`).join(', ')}). Break them up for scannability.`});
+  } else if(paragraphs.length){
+    issues.push({level:'ok', msg:'Paragraph lengths look scannable.'});
+  }
+
+  const sections = extractSections(fields.body);
+  const longSections = sections.filter(s => s.words > T.sectionMaxWords);
+  if(longSections.length){
+    issues.push({level:'warn', msg:`${longSections.length} section${longSections.length===1?'':'s'} run past ${T.sectionMaxWords} words without a subheading (${longSections.map(s=>`"${s.heading||'intro'}": ${s.words}w`).join(', ')}). Consider adding an H2/H3 to break it up.`});
+  } else if(sections.length){
+    issues.push({level:'ok', msg:'Sections are well broken up with subheadings.'});
+  }
+
+  if(words < T.minContentWords) issues.push({level:'warn', msg:`Only ${words} words so far. Under ${T.minContentWords} words is thin for a ranking-focused article.`});
+  else issues.push({level:'ok', msg:`${words} words, solid length.`});
+
+  if(/<head[\s>]|<title[\s>]|<meta\s/i.test(fields.body)){
+    issues.push({level:'error', msg:'Body contains head/title/meta tags. Those belong in the dedicated fields above, not the post body, and will not render correctly inline.'});
+  }
+
+  let score = 100;
+  score -= Math.min(emDashCount,8)*3;
+  score -= Math.min(totalAiPhrases,10)*4;
+  score -= Math.min(longParagraphs.length,6)*5;
+  score -= Math.min(longSections.length,5)*6;
+  if(words < T.minContentWords) score -= 15;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  return { score, issues };
+}
+
+function levelColor(level){
+  return level==='error' ? 'var(--danger)' : level==='warn' ? 'var(--terracotta)' : level==='ok' ? 'var(--positive)' : 'var(--muted)';
+}
+function renderChecklist(containerId, items){
+  document.getElementById(containerId).innerHTML = items.map(c=>
+    `<div class="entry-note" style="color:${levelColor(c.level)};">${esc(c.msg)}</div>`
+  ).join('');
+}
 function runSeoCheck(){
   const fields = collectPostFields();
-  const checks = analyzePost(fields);
-  const errors = checks.filter(c=>c.level==='error').length;
-  const warns = checks.filter(c=>c.level==='warn').length;
-  const oks = checks.filter(c=>c.level==='ok').length;
-  document.getElementById('seo-summary').textContent = `${oks} good, ${warns} to review, ${errors} missing`;
-  document.getElementById('seo-checks').innerHTML = checks.map(c=>{
-    const color = c.level==='error' ? 'var(--danger)' : c.level==='warn' ? 'var(--terracotta)' : c.level==='ok' ? 'var(--positive)' : 'var(--muted)';
-    return `<div class="entry-note" style="color:${color};">${esc(c.msg)}</div>`;
-  }).join('');
+  const seo = analyzeSeo(fields);
+  const readability = analyzeReadability(fields);
+
+  document.getElementById('seo-score').textContent = `${seo.score}/100`;
+  renderChecklist('seo-checks', seo.checks);
+
+  document.getElementById('readability-score').textContent = `${readability.score}/100`;
+  renderChecklist('readability-checks', readability.issues);
+
+  // Meta description gate: locked only while empty and the keyphrase hasn't
+  // earned it yet, so editing an existing description is never blocked --
+  // per the kit's spec, this is a UI nudge, never a save blocker.
+  const metaField = document.getElementById('post-meta-description');
+  metaField.disabled = !seo.keyphraseCountMet && !fields.meta_description;
+  metaField.title = metaField.disabled ? `Add your focus keyphrase at least ${SEO_THRESHOLDS.minKeyphraseOccurrences} times in the body first.` : '';
 }
 
 checkSession();
