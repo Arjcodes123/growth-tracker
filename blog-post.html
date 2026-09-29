@@ -21,23 +21,56 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
-<div class="wrap">
-  <nav class="landing-nav">
+<header class="site-header">
+  <div class="site-header-inner">
     <a href="/" class="brand">
       <span class="mark"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><g fill="#fbf6e9"><rect x="4" y="4" width="15" height="4.5"/><rect x="4" y="4" width="4.5" height="16"/><rect x="4" y="15.5" width="15" height="4.5"/><rect x="14" y="11.5" width="5" height="4.5"/></g></svg></span>
       Groundwork
     </a>
-    <div style="display:flex;align-items:center;gap:20px;">
-      <a href="/blog" class="signin">Blog</a>
-      <a href="/app.html" class="signin">Sign in</a>
-    </div>
-  </nav>
+    <nav class="nav-links">
+      <a href="/blog" class="nav-link">Blog</a>
+      <a href="/app.html" class="btn small">Sign in</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
 
   <div id="post-content"></div>
   <p class="hint" id="post-error" style="display:none;text-align:center;padding:40px 0;"></p>
 
-  <footer class="landing-footer">Groundwork<a href="/privacy.html">Privacy</a></footer>
 </div>
+
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="/" class="brand">
+          <span class="mark"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><g fill="#fbf6e9"><rect x="4" y="4" width="15" height="4.5"/><rect x="4" y="4" width="4.5" height="16"/><rect x="4" y="15.5" width="15" height="4.5"/><rect x="14" y="11.5" width="5" height="4.5"/></g></svg></span>
+          Groundwork
+        </a>
+        <p>One private log for reading, gym, study, journaling and money.</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Explore</h4>
+          <a href="/">Home</a>
+          <a href="/blog">Blog</a>
+          <a href="/app.html">Sign in</a>
+        </div>
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <a href="/privacy.html">Privacy</a>
+          <a href="mailto:abdulrehmanjavaid16@gmail.com">Contact</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 Groundwork</span>
+      <span>No passwords. No ads. No data sold.</span>
+    </div>
+  </div>
+</footer>
 <script src="/blog-post.js"></script>
 </body>
 </html>
