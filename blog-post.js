@@ -2,6 +2,8 @@ const SUPABASE_URL = 'https://olfbcqtinzbhxvwipedb.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Xk_aSrS3MnKtIoEUUc0uJw_5JUl1IiI';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const CATEGORY_LABELS = { reading:'Reading', study:'Study', gym:'Gym', journaling:'Journaling', finance:'Finance', general:'General' };
+
 function esc(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -36,7 +38,7 @@ function renderPost(post){
   const bodyHtml = marked.parse(post.body || '');
   document.getElementById('post-content').innerHTML = `
     <header class="post-header">
-      <div class="blog-date">${esc(date)}</div>
+      <div class="blog-date">${esc(date)}${post.category ? ` &middot; <span class="tag" style="margin:0;">${esc(CATEGORY_LABELS[post.category]||post.category)}</span>` : ''}</div>
       <h1>${esc(post.title)}</h1>
     </header>
     ${post.cover_image_url ? `<img class="post-cover" src="${esc(post.cover_image_url)}" alt="${esc(post.title)}">` : ''}

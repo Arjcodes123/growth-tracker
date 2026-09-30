@@ -173,6 +173,7 @@ function renderList(rows){
 let posts = [];
 let editingPostId = null; // null = creating a new post
 let slugManuallyEdited = false;
+const CATEGORY_LABELS = { reading:'Reading', study:'Study', gym:'Gym', journaling:'Journaling', finance:'Finance', general:'General' };
 
 async function loadBlogList(){
   const {data, error} = await sb.from('posts').select('*').order('updated_at', {ascending:false});
@@ -191,6 +192,7 @@ function renderBlogList(){
         <span>${esc((p.updated_at||p.created_at).slice(0,10))}</span>
       </div>
       <span class="badge badge-${p.status==='published'?'deep':'shallow'}">${esc(p.status)}</span>
+      ${p.category ? `<span class="tag">${esc(CATEGORY_LABELS[p.category]||p.category)}</span>` : ''}
       <div style="margin-top:8px;"><button class="btn secondary small" data-edit="${p.id}">Edit</button></div>
     </div>`).join('');
   el.querySelectorAll('[data-edit]').forEach(btn=>{
@@ -227,6 +229,7 @@ function openEditor(id){
   const p = id ? posts.find(x=>x.id===id) : null;
   document.getElementById('post-title').value = p?.title || '';
   document.getElementById('post-slug').value = p?.slug || '';
+  document.getElementById('post-category').value = p?.category || '';
   document.getElementById('post-meta-description').value = p?.meta_description || '';
   document.getElementById('post-meta-count').textContent = `(${(p?.meta_description||'').length} chars)`;
   document.getElementById('post-keyphrase').value = p?.focus_keyphrase || '';
@@ -247,6 +250,7 @@ function collectPostFields(){
   return {
     title: document.getElementById('post-title').value.trim(),
     slug: document.getElementById('post-slug').value.trim(),
+    category: document.getElementById('post-category').value || null,
     meta_description: document.getElementById('post-meta-description').value.trim(),
     focus_keyphrase: document.getElementById('post-keyphrase').value.trim(),
     related_keywords: document.getElementById('post-related').value.trim(),
