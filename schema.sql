@@ -122,6 +122,7 @@ create table posts (
   focus_keyphrase text,
   related_keywords text,
   cover_image_url text,
+  category text check (category is null or category in ('reading','study','gym','journaling','finance','general')),
   body text not null default '',
   status text not null default 'draft' check (status in ('draft','published')),
   created_at timestamptz not null default now(),
